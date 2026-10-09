@@ -7,6 +7,7 @@ import { describeAutoExport } from './auto-export'
 import LanguageInput from '~/components/language-input'
 import { Button } from '~/components/ui/button'
 import { Switch } from '~/components/ui/switch'
+import { Input } from '~/components/ui/input'
 import { deleteAllTranscripts, listTranscripts, notifyTranscriptsChanged, TRANSCRIPTS_CHANGED_EVENT } from '~/lib/transcripts-store'
 import { ActionRow, SettingsGroup, SettingsRow, type SettingsViewModel } from './shared'
 
@@ -74,6 +75,39 @@ export function TranscriptionSection({ vm, onOpenAutoExport }: { vm: SettingsVie
 						</Button>
 						<Switch checked={autoExport.enabled} onCheckedChange={(enabled) => vm.preference.setAutoExport({ ...autoExport, enabled })} />
 					</div>
+				</SettingsRow>
+				<SettingsRow
+					label="Source-Timecode verwenden"
+					description="Erkannte Timecodes aus MP4/MOV als Zeitoffset für Vorschau und Exporte verwenden."
+				>
+					<Switch
+						checked={vm.preference.sourceTimecode.enabled}
+						onCheckedChange={(enabled) => vm.preference.setSourceTimecode((current) => ({ ...current, enabled }))}
+					/>
+				</SettingsRow>
+				<SettingsRow label="Start-Timecode (Fallback)" description="Wird nur verwendet, wenn die Datei keinen lesbaren Timecode enthält.">
+					<Input
+						aria-label="Manueller Start-Timecode"
+						className="h-9 w-36 rounded-lg font-mono"
+						placeholder="09:20:14:08"
+						value={vm.preference.sourceTimecode.manualTimecode}
+						onChange={(event) => vm.preference.setSourceTimecode((current) => ({ ...current, manualTimecode: event.target.value }))}
+					/>
+				</SettingsRow>
+				<SettingsRow label="Framerate (Fallback)" description="Frames pro Sekunde; zum Beispiel 25, 24 oder 30000/1001.">
+					<Input
+						aria-label="Manuelle Framerate"
+						className="h-9 w-36 rounded-lg font-mono"
+						placeholder="25"
+						value={vm.preference.sourceTimecode.manualFps}
+						onChange={(event) => vm.preference.setSourceTimecode((current) => ({ ...current, manualFps: event.target.value }))}
+					/>
+				</SettingsRow>
+				<SettingsRow label="Nach 24 Stunden bei 00:00:00 neu beginnen">
+					<Switch
+						checked={vm.preference.sourceTimecode.wrapAt24Hours}
+						onCheckedChange={(wrapAt24Hours) => vm.preference.setSourceTimecode((current) => ({ ...current, wrapAt24Hours }))}
+					/>
 				</SettingsRow>
 				<SettingsRow label={m.playSoundOnFinish()}>
 					<Switch checked={vm.preference.soundOnFinish} onCheckedChange={vm.preference.setSoundOnFinish} />

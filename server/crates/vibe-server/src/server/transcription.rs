@@ -24,7 +24,7 @@ pub(super) async fn transcribe(
     request: TranscriptionRequest,
 ) -> Result<Response, Response> {
     let TranscriptionRequest { file, form } = request;
-    let (diarize_model, enhance_audio, stable_timestamps, vad_model_path, stream, response_format) = {
+    let (diarize_model, enhance_audio, stable_timestamps, vad_model_path, stream, response_format, wrap_24h) = {
         let values = FormValues::new(&form);
         (
             values.string("diarize_model"),
@@ -33,8 +33,26 @@ pub(super) async fn transcribe(
             values.string("vad_model"),
             values.bool("stream"),
             values.str_or("response_format", "json").to_string(),
+            values.str_or("timecode_wrap", "true") != "false" && values.str_or("timecode_wrap", "true") != "0",
         )
     };
+    let use_source_timecode = form
+        .get("source_timecode")
+        .map(|value| !matches!(value.as_str(), "false" | "0" | "off"))
+        .unwrap_or(false);
+    let source_timecode = if use_source_timecode {
+        crate::timecode::probe_bytes(&file).or_else(|| {
+            let values = FormValues::new(&form);
+            let raw = values.string("timecode_start")?;
+            let rate = crate::timecode::parse_rate(&values.string("timecode_fps")?)?;
+            crate::timecode::parse(&raw, rate.0, rate.1)
+        })
+    } else {
+        None
+    };
+    if use_source_timecode && source_timecode.is_none() {
+        tracing::info!("no source timecode found; keeping relative timestamps");
+    }
     let audio_options = audio::ReadOptions {
         enhance_audio,
         verbose: config.verbose(),
@@ -60,8 +78,18 @@ pub(super) async fn transcribe(
     }
 
     if stream {
-        return stream_transcription(config, model, samples, form, stable_timestamps, vad_model_path, diar_segments)
-            .map_err(|err| *err);
+        return stream_transcription(
+            config,
+            model,
+            samples,
+            form,
+            stable_timestamps,
+            vad_model_path,
+            diar_segments,
+            source_timecode,
+            wrap_24h,
+        )
+        .map_err(|err| *err);
     }
 
     let verbose = config.verbose();
@@ -88,7 +116,7 @@ pub(super) async fn transcribe(
         )
     })?;
 
-    Ok(format_response(&response_format, &result, &diar_segments))
+    Ok(format_response(&response_format, &result, &diar_segments, source_timecode.as_ref(), wrap_24h))
 }
 
 pub(super) fn build_options(
@@ -121,18 +149,32 @@ fn format_response(
     response_format: &str,
     result: &whisper_rs::TranscribeResult,
     diar_segments: &[diarization::Segment],
+    source_timecode: Option<&crate::timecode::SourceTimecode>,
+    wrap_24h: bool,
 ) -> Response {
     match response_format {
-        "verbose_json" => Json(format::build_verbose_json(result, diar_segments)).into_response(),
+        "verbose_json" => Json(
+            source_timecode.map_or_else(
+                || format::build_verbose_json(result, diar_segments),
+                |timecode| format::build_verbose_json_with_timecode(result, diar_segments, Some(timecode), wrap_24h),
+            ),
+        )
+        .into_response(),
         "text" => ([(header::CONTENT_TYPE, "text/plain; charset=utf-8")], result.text()).into_response(),
         "srt" => (
             [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-            format::format_srt(&result.segments),
+            source_timecode.map_or_else(
+                || format::format_srt(&result.segments),
+                |timecode| format::format_srt_with_timecode(&result.segments, Some(timecode), wrap_24h),
+            ),
         )
             .into_response(),
         "vtt" => (
             [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-            format::format_vtt(&result.segments),
+            source_timecode.map_or_else(
+                || format::format_vtt(&result.segments),
+                |timecode| format::format_vtt_with_timecode(&result.segments, Some(timecode), wrap_24h),
+            ),
         )
             .into_response(),
         _ => Json(TextResponse { text: result.text() }).into_response(),

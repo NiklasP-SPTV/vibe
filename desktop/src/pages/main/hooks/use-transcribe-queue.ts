@@ -9,6 +9,7 @@ import { trackGpuOutOfMemory, trackTranscribeCancelled, trackTranscribeFailed, t
 import * as config from '~/lib/config'
 import { KEEP_AWAKE, startKeepAwake, stopKeepAwake } from '~/lib/keep-awake'
 import { validPath } from '~/lib/media'
+import { getSourceTimecode } from '~/lib/source-timecode'
 import { exportTranscript, sharedFolder, summarizeResults, tauriExportIo, type AutoExportResult } from '~/lib/auto-export'
 import { openPath } from '~/lib/app'
 import { notify } from '~/lib/notify'
@@ -300,8 +301,9 @@ export function useTranscribeQueue(): TranscribeQueue {
 		async (job: Job, segments: Segment[]): Promise<AutoExportResult | null> => {
 			const current = preferenceRef.current
 			if (!current.autoExport.enabled || segments.length === 0) return null
+			const sourceTimecode = await getSourceTimecode(job.path, current.sourceTimecode)
 			const result = await exportTranscript(
-				{ name: job.name, path: job.path, segments, summary: job.summary, speakerNames: job.speakerNames },
+				{ name: job.name, path: job.path, segments, summary: job.summary, speakerNames: job.speakerNames, sourceTimecode, wrapAt24Hours: current.sourceTimecode.wrapAt24Hours },
 				current.autoExport,
 				{
 					direction: current.textAreaDirection,

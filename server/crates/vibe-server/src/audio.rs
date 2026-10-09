@@ -130,7 +130,7 @@ fn try_read_native_wav<R: Read + Seek>(reader: &mut R) -> anyhow::Result<Vec<f32
     Ok(samples)
 }
 
-fn find_ffmpeg() -> anyhow::Result<PathBuf> {
+pub(crate) fn find_ffmpeg() -> anyhow::Result<PathBuf> {
     if let Some(path) = find_in_path("ffmpeg") {
         return Ok(path);
     }

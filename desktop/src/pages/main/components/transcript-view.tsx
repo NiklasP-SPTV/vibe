@@ -6,6 +6,8 @@ import { m } from '~/paraglide/messages.js'
 import { getLocale, getTextDirection } from '~/paraglide/runtime.js'
 import { Button } from '~/components/ui/button'
 import { formatTimestamp, type Segment, type SpeakerNames } from '~/lib/transcript'
+import { formatSourceTimecode, type SourceTimecode } from '~/lib/timecode'
+import { useSourceTimecode } from '~/lib/source-timecode'
 import { cn } from '~/lib/style'
 import { usePreferenceProvider } from '~/providers/preference'
 import { useSession } from '../session'
@@ -223,6 +225,8 @@ interface SegmentBlockProps {
 	editing: EditTarget | null
 	active: boolean
 	options: TranscriptViewOptions
+	sourceTimecode?: SourceTimecode
+	wrapAt24Hours: boolean
 	speakerNames?: SpeakerNames
 	/** Every speaker index the transcript knows, so a line can be moved to one of them. */
 	speakers: number[]
@@ -243,6 +247,8 @@ const SegmentBlock = memo(function SegmentBlock({
 	editing,
 	active,
 	options,
+	sourceTimecode,
+	wrapAt24Hours,
 	speakerNames,
 	speakers,
 	onStartEdit,
@@ -274,7 +280,9 @@ const SegmentBlock = memo(function SegmentBlock({
 		window.dispatchEvent(new CustomEvent(PLAYER_SEEK_EVENT, { detail: { seconds: segment.start / CENTISECONDS_PER_SECOND } }))
 	}, [segment.start])
 
-	const timestamp = formatTimestamp(segment.start, false, '', false)
+	const timestamp = sourceTimecode
+		? formatSourceTimecode(segment.start, sourceTimecode, wrapAt24Hours)
+		: formatTimestamp(segment.start, false, '', false)
 
 	return (
 		<motion.div
@@ -306,7 +314,7 @@ const SegmentBlock = memo(function SegmentBlock({
 				title={timestamp}
 				className={cn(
 					'group/play relative z-10 mt-[3px] flex h-5 shrink-0 cursor-pointer items-center justify-end rounded-sm font-mono text-[11px] tracking-tight tabular-nums transition-colors duration-150 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/80',
-					options.showTimestamps ? 'w-[52px]' : 'w-4',
+					options.showTimestamps ? (sourceTimecode ? 'w-[88px]' : 'w-[52px]') : 'w-4',
 					active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
 				)}>
 				{options.showTimestamps && <span className="transition-opacity duration-150 group-hover/play:opacity-0">{timestamp}</span>}
@@ -379,6 +387,7 @@ export default function TranscriptView({
 }) {
 	const preference = usePreferenceProvider()
 	const interfaceDirection = getTextDirection(getLocale())
+	const sourceClock = useSourceTimecode(job.path, preference.sourceTimecode)
 	const { queue } = useSession()
 	const scrollRef = useRef<HTMLDivElement>(null)
 	const listRef = useRef<HTMLDivElement>(null)
@@ -626,6 +635,19 @@ export default function TranscriptView({
 						onDraftChange={(name) => queue.previewJobName(job.id, name)}
 						onRename={(name) => queue.renameJob(job.id, name)}
 					/>
+					{(/\.(mp4|mov|m4v)$/i.test(job.path) || preference.sourceTimecode.manualTimecode.trim()) && (
+						<p className="-mt-6 mb-7 text-xs text-muted-foreground" role="status">
+							{sourceClock.loading
+								? 'Source-Timecode wird geprüft …'
+								: sourceClock.detected
+									? `Source-Timecode erkannt: ${sourceClock.detected.raw} · ${sourceClock.detected.fps.toFixed(3)} fps${sourceClock.detected.dropFrame ? ' DF' : ' NDF'}${preference.sourceTimecode.enabled ? '' : ' (deaktiviert)'}`
+									: sourceClock.timecode
+										? `Manueller Source-Timecode: ${sourceClock.timecode.raw} · ${sourceClock.timecode.fps.toFixed(3)} fps`
+										: preference.sourceTimecode.enabled
+											? 'Kein Source-Timecode gefunden – Zeitangaben bleiben relativ.'
+											: 'Source-Timecode deaktiviert – Zeitangaben bleiben relativ.'}
+						</p>
+					)}
 
 					{job.status === 'error' && <p className="mb-8 text-sm text-destructive">{job.error}</p>}
 
@@ -673,6 +695,8 @@ export default function TranscriptView({
 										editing={editing?.index === index ? editing : null}
 										active={activeIndex === index}
 										options={options}
+										sourceTimecode={sourceClock.timecode}
+										wrapAt24Hours={preference.sourceTimecode.wrapAt24Hours}
 										speakerNames={job.speakerNames}
 										speakers={speakers}
 										onStartEdit={startEdit}

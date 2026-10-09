@@ -16,6 +16,7 @@ import { readConfig } from '~/lib/config-store'
 import { message } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import type { ModelMetadata } from '~/lib/model'
+import type { SourceTimecodeSettings } from '~/lib/source-timecode'
 
 /** Which build of the engine's CPU backend to run; `auto` lets CPUID decide. */
 export type CpuVariant = 'auto' | 'avx2' | 'baseline'
@@ -110,6 +111,8 @@ export interface Preference {
 	/** Everything the export dialog remembers, kept together under one config key. */
 	exportOptions: ExportOptions
 	setExportOptions: ModifyState<ExportOptions>
+	sourceTimecode: SourceTimecodeSettings
+	setSourceTimecode: ModifyState<SourceTimecodeSettings>
 	autoExport: AutoExportSettings
 	setAutoExport: ModifyState<AutoExportSettings>
 
@@ -254,6 +257,25 @@ export function PreferenceProvider({ children }: { children: ReactNode }) {
 	const [diarizeEnabled, setDiarizeEnabled] = usePersisted<boolean>(CONFIG_KEYS.diarizeEnabled, false)
 	const [stableTimestampsEnabled, setStableTimestampsEnabled] = usePersisted<boolean>(CONFIG_KEYS.stableTimestampsEnabled, false)
 	const [storedExportOptions, setStoredExportOptions] = usePersisted<Partial<ExportOptions>>(CONFIG_KEYS.exportOptions, DEFAULT_EXPORT_OPTIONS)
+	const [storedSourceTimecode, setStoredSourceTimecode] = usePersisted<Partial<SourceTimecodeSettings>>(CONFIG_KEYS.sourceTimecode, {
+		enabled: true,
+		manualTimecode: '',
+		manualFps: '',
+		wrapAt24Hours: true,
+	})
+	const sourceTimecode = useMemo<SourceTimecodeSettings>(
+		() => ({ enabled: true, manualTimecode: '', manualFps: '', wrapAt24Hours: true, ...storedSourceTimecode }),
+		[storedSourceTimecode],
+	)
+	const setSourceTimecode: ModifyState<SourceTimecodeSettings> = useCallback(
+		(value) => {
+			setStoredSourceTimecode((previous) => {
+				const current = { enabled: true, manualTimecode: '', manualFps: '', wrapAt24Hours: true, ...previous }
+				return typeof value === 'function' ? (value as (state: SourceTimecodeSettings) => SourceTimecodeSettings)(current) : value
+			})
+		},
+		[setStoredSourceTimecode],
+	)
 	// One key holding several settings can be half-written by an older build or a hand-edited
 	// config, and a missing field would reach the exporter as `undefined`. Defaults fill the gaps,
 	// on the way in and on the way back out.
@@ -450,6 +472,8 @@ export function PreferenceProvider({ children }: { children: ReactNode }) {
 		setStableTimestampsEnabled,
 		exportOptions,
 		setExportOptions,
+		sourceTimecode,
+		setSourceTimecode,
 		gpuDevice,
 		noGpu,
 		setNoGpu,

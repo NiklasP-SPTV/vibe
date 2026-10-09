@@ -116,6 +116,7 @@ async fn main() -> Result<()> {
             cmd::skill::get_agent_paths,
             tray::set_tray,
             cmd::transcribe::transcribe,
+            cmd::timecode::probe_media_timecode,
             cmd::files::glob_files,
             cmd::files::pick_media_paths,
             cmd::download::download_model,

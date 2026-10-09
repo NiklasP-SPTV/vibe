@@ -1,6 +1,7 @@
 import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx'
 import { formatDuration } from '~/components/html-view'
 import { speakerName, type Segment, type SpeakerNames } from './transcript'
+import { formatSourceTimecode, type SourceTimecode } from './timecode'
 
 export interface DocxExportOptions {
 	content?: 'transcript' | 'summary' | 'both'
@@ -10,6 +11,8 @@ export interface DocxExportOptions {
 	summary?: string
 	transcriptLabel?: string
 	summaryLabel?: string
+	sourceTimecode?: SourceTimecode
+	wrapAt24Hours?: boolean
 }
 
 /**
@@ -64,10 +67,15 @@ export async function toDocx(title: string, segments: Segment[], direction: 'rtl
 	for (const segment of segments) {
 		const text = segment.text.trim()
 		if (!text) continue
+		const timestamp = options.sourceTimecode
+			? `${formatSourceTimecode(segment.start, options.sourceTimecode, options.wrapAt24Hours)} --> ${formatSourceTimecode(segment.stop, options.sourceTimecode, options.wrapAt24Hours)}`
+			: showTimestamps
+				? formatDuration(segment.start, segment.stop, 'ltr')
+				: ''
 		const metadata = [
 			// Always the left-to-right form: the right-to-left embedding the view uses would turn
 			// "00:00 --> 00:07" into "00:07 <-- 00:00" once Word resolves the line.
-			showTimestamps ? formatDuration(segment.start, segment.stop, 'ltr') : '',
+			timestamp,
 			showSpeakers && segment.speaker != null ? speakerName(segment.speaker, speakerLabel, options.speakerNames) : '',
 		]
 			.filter(Boolean)

@@ -1,5 +1,6 @@
 import type { TextFormat } from '~/components/format-select'
 import { formatTimestamp, speakerName, type Segment, type SpeakerNames } from '~/lib/transcript'
+import { formatSourceMilliseconds, formatSourceTimecode, sourceTimecodeMilliseconds, type SourceTimecode } from '~/lib/timecode'
 
 export type TranscriptExportContent = 'transcript' | 'summary' | 'both'
 
@@ -13,6 +14,8 @@ export interface TranscriptExportOptions {
 	title: string
 	direction: 'rtl' | 'ltr'
 	theme?: 'dark' | 'light'
+	sourceTimecode?: SourceTimecode
+	wrapAt24Hours?: boolean
 }
 
 export function includesTranscript(content: TranscriptExportContent) {
@@ -38,7 +41,12 @@ function chosenSpeakerName(segment: Segment, options: TranscriptExportOptions) {
 }
 
 export function segmentMetadata(segment: Segment, options: TranscriptExportOptions) {
-	const time = options.showTimestamps ? timestamp(segment.start, segment.stop) : ''
+	const source = options.sourceTimecode
+	const time = options.showTimestamps
+		? source
+			? `${formatSourceTimecode(segment.start, source, options.wrapAt24Hours)} --> ${formatSourceTimecode(segment.stop, source, options.wrapAt24Hours)}`
+			: timestamp(segment.start, segment.stop)
+		: ''
 	const directionalTime = time && options.direction === 'rtl' ? `\u2066${time}\u2069` : time
 	return [directionalTime, speaker(segment, options)].filter(Boolean).join(' · ')
 }
@@ -77,7 +85,7 @@ function subtitleText(segment: Segment, options: TranscriptExportOptions) {
 
 function serializeSrt(segments: Segment[], summary: string, options: TranscriptExportOptions) {
 	const cues = includesTranscript(options.content)
-		? segments.map((segment, index) => `${index + 1}\n${timestamp(segment.start, segment.stop, ',', true)}\n${subtitleText(segment, options)}`).join('\n\n')
+		? segments.map((segment, index) => `${index + 1}\n${options.sourceTimecode ? `${formatSourceMilliseconds(segment.start, options.sourceTimecode, ',', options.wrapAt24Hours)} --> ${formatSourceMilliseconds(segment.stop, options.sourceTimecode, ',', options.wrapAt24Hours)}` : timestamp(segment.start, segment.stop, ',', true)}\n${subtitleText(segment, options)}`).join('\n\n')
 		: ''
 	const summaryBlock = includesSummary(options.content) ? `NOTE Summary\n${summary}` : ''
 	return [cues, summaryBlock].filter(Boolean).join('\n\n')
@@ -85,7 +93,7 @@ function serializeSrt(segments: Segment[], summary: string, options: TranscriptE
 
 function serializeVtt(segments: Segment[], summary: string, options: TranscriptExportOptions) {
 	const cues = includesTranscript(options.content)
-		? segments.map((segment) => `${timestamp(segment.start, segment.stop)}\n${subtitleText(segment, options)}`).join('\n\n')
+		? segments.map((segment) => `${options.sourceTimecode ? `${formatSourceMilliseconds(segment.start, options.sourceTimecode, '.', options.wrapAt24Hours)} --> ${formatSourceMilliseconds(segment.stop, options.sourceTimecode, '.', options.wrapAt24Hours)}` : timestamp(segment.start, segment.stop)}\n${subtitleText(segment, options)}`).join('\n\n')
 		: ''
 	const summaryBlock = includesSummary(options.content) ? `NOTE Summary\n${summary}` : ''
 	return `WEBVTT\n\n${[cues, summaryBlock].filter(Boolean).join('\n\n')}`
@@ -140,16 +148,27 @@ function serializeHtml(segments: Segment[], summary: string, options: Transcript
 }
 
 function serializeJson(segments: Segment[], summary: string, options: TranscriptExportOptions) {
-	const output: { title?: string; direction: 'rtl' | 'ltr'; transcript?: object[]; summary?: string } = {
+	const output: { title?: string; direction: 'rtl' | 'ltr'; sourceTimecode?: { start: string; fps: number; dropFrame: boolean }; transcript?: object[]; summary?: string } = {
 		direction: options.direction,
+	}
+	if (options.sourceTimecode) {
+		output.sourceTimecode = {
+			start: options.sourceTimecode.raw,
+			fps: options.sourceTimecode.fps,
+			dropFrame: options.sourceTimecode.dropFrame,
+		}
 	}
 	if (options.title.trim()) output.title = options.title.trim()
 	if (includesTranscript(options.content)) {
 		output.transcript = segments.map((segment) => {
-			const row: { start?: number; stop?: number; speaker?: number; speakerName?: string; text: string } = { text: segment.text.trim() }
+			const row: { start?: number; stop?: number; startTimecode?: string; stopTimecode?: string; speaker?: number; speakerName?: string; text: string } = { text: segment.text.trim() }
 			if (options.showTimestamps) {
-				row.start = segment.start / 100
-				row.stop = segment.stop / 100
+				row.start = options.sourceTimecode ? sourceTimecodeMilliseconds(segment.start, options.sourceTimecode, options.wrapAt24Hours) / 1000 : segment.start / 100
+				row.stop = options.sourceTimecode ? sourceTimecodeMilliseconds(segment.stop, options.sourceTimecode, options.wrapAt24Hours) / 1000 : segment.stop / 100
+				if (options.sourceTimecode) {
+					row.startTimecode = formatSourceTimecode(segment.start, options.sourceTimecode, options.wrapAt24Hours)
+					row.stopTimecode = formatSourceTimecode(segment.stop, options.sourceTimecode, options.wrapAt24Hours)
+				}
 			}
 			if (options.showSpeakers && segment.speaker != null) {
 				row.speaker = segment.speaker + 1
@@ -174,7 +193,7 @@ function serializeCsv(segments: Segment[], summary: string, options: TranscriptE
 		for (const segment of segments) {
 			rows.push([
 				'transcript',
-				...(options.showTimestamps ? [formatTimestamp(segment.start, true, '.'), formatTimestamp(segment.stop, true, '.')] : []),
+				...(options.showTimestamps ? [options.sourceTimecode ? formatSourceTimecode(segment.start, options.sourceTimecode, options.wrapAt24Hours) : formatTimestamp(segment.start, true, '.'), options.sourceTimecode ? formatSourceTimecode(segment.stop, options.sourceTimecode, options.wrapAt24Hours) : formatTimestamp(segment.stop, true, '.')] : []),
 				...(options.showSpeakers ? [segment.speaker != null ? (chosenSpeakerName(segment, options) ?? segment.speaker + 1) : ''] : []),
 				segment.text.trim(),
 			])
@@ -207,6 +226,7 @@ export function serializeTranscriptExport(format: TextFormat, segments: Segment[
 		case 'csv':
 			return serializeCsv(segments, normalizedSummary, options)
 		case 'docx':
+			return serializeDocumentPreview(segments, normalizedSummary, options.sourceTimecode ? { ...options, showTimestamps: true } : options)
 		case 'pdf':
 			return serializeDocumentPreview(segments, normalizedSummary, options)
 		case 'normal':

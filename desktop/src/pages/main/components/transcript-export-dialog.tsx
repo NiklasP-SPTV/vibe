@@ -29,6 +29,7 @@ export interface TranscriptExportDialogProps {
 	showSpeakers: boolean
 	onShowSpeakersChange: (show: boolean) => void
 	preview: string
+	timecodeNotice?: string
 	renderedPreview?: string
 	direction: 'rtl' | 'ltr'
 	/** Direction of this export only — a one-off override, never saved. */
@@ -232,6 +233,7 @@ export default function TranscriptExportDialog({
 	showSpeakers,
 	onShowSpeakersChange,
 	preview,
+	timecodeNotice,
 	renderedPreview,
 	direction,
 	onDirectionChange,
@@ -353,6 +355,7 @@ export default function TranscriptExportDialog({
 						<div id="export-preview-heading">
 							<SectionLabel>{m.exportPreview()}</SectionLabel>
 						</div>
+						{timecodeNotice && <p className="mt-2 text-xs text-muted-foreground" role="status">{timecodeNotice}</p>}
 						{renderedPreview ? (
 							<RenderedDocumentPreview html={renderedPreview} direction={direction} theme={theme} />
 						) : format === 'md' ? (

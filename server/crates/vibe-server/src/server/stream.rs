@@ -22,6 +22,8 @@ pub(super) fn stream_transcription(
     stable_timestamps: bool,
     vad_model_path: Option<String>,
     diar_segments: Vec<diarization::Segment>,
+    source_timecode: Option<crate::timecode::SourceTimecode>,
+    wrap_24h: bool,
 ) -> Result<Response, Box<Response>> {
     if model.ctx.is_none() {
         return Err(Box::new(error(
@@ -48,6 +50,7 @@ pub(super) fn stream_transcription(
     let segment_tx = tx.clone();
     let final_tx = tx.clone();
     let segment_diar_segments = diar_segments.clone();
+    let segment_timecode = source_timecode.clone();
 
     tokio::task::spawn_blocking(move || {
         let Some(ctx) = model.ctx.as_mut() else {
@@ -81,13 +84,31 @@ pub(super) fn stream_transcription(
                 on_segment: Some(Box::new(move |segment| {
                     let start = format::cs_to_seconds(segment.start);
                     let end = format::cs_to_seconds(segment.end);
+                    let output_start = segment_timecode.as_ref().map_or(start, |tc| {
+                        crate::timecode::subtitle_millis(segment.start, tc, wrap_24h) as f64 / 1000.0
+                    });
+                    let output_end = segment_timecode.as_ref().map_or(end, |tc| {
+                        crate::timecode::subtitle_millis(segment.end, tc, wrap_24h) as f64 / 1000.0
+                    });
                     let mut event = serde_json::json!({
                         "type": "segment",
-                        "start": start,
-                        "end": end,
+                        "start": output_start,
+                        "end": output_end,
                         "text": segment.text,
                         "no_speech_prob": segment.no_speech_prob,
                     });
+                    if let Some(tc) = &segment_timecode {
+                        event["start_timecode"] = serde_json::json!(crate::timecode::format_timecode(
+                            segment.start,
+                            tc,
+                            wrap_24h,
+                        ));
+                        event["end_timecode"] = serde_json::json!(crate::timecode::format_timecode(
+                            segment.end,
+                            tc,
+                            wrap_24h,
+                        ));
+                    }
                     if let Some(speaker) = format::match_speaker(start, end, &segment_diar_segments) {
                         event["speaker"] = serde_json::json!(speaker);
                     }

@@ -55,6 +55,7 @@ export const CONFIG_KEYS = {
 	showTimestamps: 'transcript.showTimestamps',
 	showSpeakers: 'transcript.showSpeakers',
 	exportOptions: 'transcript.exportOptions',
+	sourceTimecode: 'transcription.sourceTimecode',
 	textFormatTranscript: 'transcript.exportFormat',
 	textFormatSummary: 'transcript.summaryExportFormat',
 	transcriptTab: 'transcript.tab',

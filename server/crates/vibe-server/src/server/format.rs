@@ -23,6 +23,14 @@ pub(crate) fn cs_to_vtt_time(cs: i64) -> String {
 }
 
 pub fn format_srt(segments: &[Segment]) -> String {
+    format_srt_with_timecode(segments, None, true)
+}
+
+pub fn format_srt_with_timecode(
+    segments: &[Segment],
+    source: Option<&crate::timecode::SourceTimecode>,
+    wrap_24h: bool,
+) -> String {
     let mut out = String::new();
     for (index, segment) in segments.iter().enumerate() {
         if index > 0 {
@@ -31,8 +39,14 @@ pub fn format_srt(segments: &[Segment]) -> String {
         out.push_str(&format!(
             "{}\n{} --> {}\n{}\n",
             index + 1,
-            cs_to_srt_time(segment.start),
-            cs_to_srt_time(segment.end),
+            source.map_or_else(
+                || cs_to_srt_time(segment.start),
+                |tc| crate::timecode::subtitle_time(segment.start, tc, ',', wrap_24h),
+            ),
+            source.map_or_else(
+                || cs_to_srt_time(segment.end),
+                |tc| crate::timecode::subtitle_time(segment.end, tc, ',', wrap_24h),
+            ),
             segment.text.trim()
         ));
     }
@@ -40,6 +54,14 @@ pub fn format_srt(segments: &[Segment]) -> String {
 }
 
 pub fn format_vtt(segments: &[Segment]) -> String {
+    format_vtt_with_timecode(segments, None, true)
+}
+
+pub fn format_vtt_with_timecode(
+    segments: &[Segment],
+    source: Option<&crate::timecode::SourceTimecode>,
+    wrap_24h: bool,
+) -> String {
     let mut out = String::from("WEBVTT\n\n");
     for (index, segment) in segments.iter().enumerate() {
         if index > 0 {
@@ -47,8 +69,14 @@ pub fn format_vtt(segments: &[Segment]) -> String {
         }
         out.push_str(&format!(
             "{} --> {}\n{}\n",
-            cs_to_vtt_time(segment.start),
-            cs_to_vtt_time(segment.end),
+            source.map_or_else(
+                || cs_to_vtt_time(segment.start),
+                |tc| crate::timecode::subtitle_time(segment.start, tc, '.', wrap_24h),
+            ),
+            source.map_or_else(
+                || cs_to_vtt_time(segment.end),
+                |tc| crate::timecode::subtitle_time(segment.end, tc, '.', wrap_24h),
+            ),
             segment.text.trim()
         ));
     }
@@ -59,12 +87,18 @@ pub fn format_vtt(segments: &[Segment]) -> String {
 pub struct VerboseJson {
     pub text: String,
     pub segments: Vec<VerboseSegment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_timecode: Option<String>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct VerboseSegment {
     pub start: f64,
     pub end: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_timecode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_timecode: Option<String>,
     pub text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub speaker: Option<usize>,
@@ -72,17 +106,39 @@ pub struct VerboseSegment {
 }
 
 pub fn build_verbose_json(result: &TranscribeResult, diar_segments: &[diarization::Segment]) -> VerboseJson {
+    build_verbose_json_with_timecode(result, diar_segments, None, true)
+}
+
+pub fn build_verbose_json_with_timecode(
+    result: &TranscribeResult,
+    diar_segments: &[diarization::Segment],
+    source: Option<&crate::timecode::SourceTimecode>,
+    wrap_24h: bool,
+) -> VerboseJson {
     VerboseJson {
         text: result.text(),
+        source_timecode: source.map(|tc| tc.raw.clone()),
         segments: result
             .segments
             .iter()
-            .map(|segment| VerboseSegment {
-                start: cs_to_seconds(segment.start),
-                end: cs_to_seconds(segment.end),
-                text: segment.text.clone(),
-                speaker: match_speaker(cs_to_seconds(segment.start), cs_to_seconds(segment.end), diar_segments),
-                no_speech_prob: segment.no_speech_prob,
+            .map(|segment| {
+                let start = source.map_or_else(
+                    || cs_to_seconds(segment.start),
+                    |tc| crate::timecode::subtitle_millis(segment.start, tc, wrap_24h) as f64 / 1000.0,
+                );
+                let end = source.map_or_else(
+                    || cs_to_seconds(segment.end),
+                    |tc| crate::timecode::subtitle_millis(segment.end, tc, wrap_24h) as f64 / 1000.0,
+                );
+                VerboseSegment {
+                    start,
+                    end,
+                    start_timecode: source.map(|tc| crate::timecode::format_timecode(segment.start, tc, wrap_24h)),
+                    end_timecode: source.map(|tc| crate::timecode::format_timecode(segment.end, tc, wrap_24h)),
+                    text: segment.text.clone(),
+                    speaker: match_speaker(cs_to_seconds(segment.start), cs_to_seconds(segment.end), diar_segments),
+                    no_speech_prob: segment.no_speech_prob,
+                }
             })
             .collect(),
     }

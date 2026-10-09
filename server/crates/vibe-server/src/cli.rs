@@ -48,6 +48,18 @@ enum Command {
         max_text_ctx: i32,
         #[arg(long)]
         word_timestamps: bool,
+        /// Keep Whisper-relative timestamps instead of applying an embedded source timecode.
+        #[arg(long)]
+        no_source_timecode: bool,
+        /// Manual timecode used only when the media has no readable embedded timecode.
+        #[arg(long)]
+        timecode_start: Option<String>,
+        /// Manual fallback frame rate, for example 25 or 30000/1001.
+        #[arg(long)]
+        timecode_fps: Option<String>,
+        /// Keep counting after 24 hours instead of wrapping to 00:00:00.
+        #[arg(long)]
+        timecode_keep_over_24_hours: bool,
         #[arg(long, default_value_t = 0)]
         max_segment_len: i32,
         #[arg(long, default_value_t = 0)]
@@ -119,6 +131,10 @@ pub async fn run() -> anyhow::Result<()> {
             temperature,
             max_text_ctx,
             word_timestamps,
+            no_source_timecode,
+            timecode_start,
+            timecode_fps,
+            timecode_keep_over_24_hours,
             max_segment_len,
             best_of,
             beam_size,
@@ -138,6 +154,10 @@ pub async fn run() -> anyhow::Result<()> {
                     temperature,
                     max_text_ctx,
                     word_timestamps,
+                    no_source_timecode,
+                    timecode_start,
+                    timecode_fps,
+                    timecode_keep_over_24_hours,
                     max_segment_len,
                     best_of,
                     beam_size,
@@ -209,6 +229,19 @@ async fn transcribe_command(args: TranscribeArgs, config: AppConfig) -> anyhow::
         )
         .inspect_err(|err| tracing::error!("transcription failed: {err:#}"))?;
 
+    let source_timecode = if args.no_source_timecode {
+        None
+    } else {
+        crate::timecode::probe_path(std::path::Path::new(&args.audio)).or_else(|| {
+            let raw = args.timecode_start.as_deref()?;
+            let rate = crate::timecode::parse_rate(args.timecode_fps.as_deref()?)?;
+            crate::timecode::parse(raw, rate.0, rate.1)
+        })
+    };
+    if !args.no_source_timecode && source_timecode.is_none() {
+        eprintln!("notice: no source timecode found; output timestamps remain relative");
+    }
+
     if args.word_timestamps {
         // whisper.cpp emits one segment per word here, plus a leading empty one for
         // the silence before speech starts.
@@ -216,8 +249,14 @@ async fn transcribe_command(args: TranscribeArgs, config: AppConfig) -> anyhow::
         for word in words {
             println!(
                 "[{} --> {}] {}",
-                format::cs_to_vtt_time(word.start),
-                format::cs_to_vtt_time(word.end),
+                source_timecode.as_ref().map_or_else(
+                    || format::cs_to_vtt_time(word.start),
+                    |tc| crate::timecode::subtitle_time(word.start, tc, '.', !args.timecode_keep_over_24_hours),
+                ),
+                source_timecode.as_ref().map_or_else(
+                    || format::cs_to_vtt_time(word.end),
+                    |tc| crate::timecode::subtitle_time(word.end, tc, '.', !args.timecode_keep_over_24_hours),
+                ),
                 word.text.trim()
             );
         }
@@ -260,6 +299,10 @@ struct TranscribeArgs {
     temperature: f32,
     max_text_ctx: i32,
     word_timestamps: bool,
+    no_source_timecode: bool,
+    timecode_start: Option<String>,
+    timecode_fps: Option<String>,
+    timecode_keep_over_24_hours: bool,
     max_segment_len: i32,
     best_of: i32,
     beam_size: i32,

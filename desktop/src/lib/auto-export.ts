@@ -7,6 +7,7 @@ import { transcriptToPdf } from '~/lib/pdf/transcript-pdf'
 import { projectExportFilename } from '~/lib/project-name'
 import type { Segment, SpeakerNames } from '~/lib/transcript'
 import { serializeTranscriptExport, type TranscriptExportOptions } from '~/lib/transcript-export'
+import type { SourceTimecode } from '~/lib/timecode'
 import { transcriptsFolder } from '~/lib/transcripts-store'
 
 /**
@@ -56,6 +57,8 @@ export interface ExportInput {
 	segments: Segment[]
 	summary?: string
 	speakerNames?: SpeakerNames
+	sourceTimecode?: SourceTimecode
+	wrapAt24Hours?: boolean
 }
 
 export interface ExportRendering {
@@ -103,6 +106,8 @@ export async function renderExport(format: TextFormat, input: ExportInput, rende
 		title: input.name,
 		direction: rendering.direction,
 		theme: rendering.theme,
+		sourceTimecode: input.sourceTimecode,
+		wrapAt24Hours: input.wrapAt24Hours,
 	}
 	if (format === 'pdf') {
 		return transcriptToPdf(input.segments, input.summary ?? '', options, rendering.labels)
@@ -113,6 +118,8 @@ export async function renderExport(format: TextFormat, input: ExportInput, rende
 			showTimestamps: rendering.showTimestamps,
 			showSpeakers: rendering.showSpeakers,
 			speakerNames: input.speakerNames,
+			sourceTimecode: input.sourceTimecode,
+			wrapAt24Hours: input.wrapAt24Hours,
 			summary: input.summary,
 			transcriptLabel: rendering.labels.transcript,
 			summaryLabel: rendering.labels.summary,

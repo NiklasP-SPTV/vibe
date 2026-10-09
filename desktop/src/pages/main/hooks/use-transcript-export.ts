@@ -12,6 +12,7 @@ import { projectExportFilename } from '~/lib/project-name'
 import { transcriptToPdf } from '~/lib/pdf/transcript-pdf'
 import { serializeTranscriptExport, type TranscriptExportContent, type TranscriptExportOptions } from '~/lib/transcript-export'
 import type { Segment, SpeakerNames } from '~/lib/transcript'
+import type { SourceTimecode } from '~/lib/timecode'
 import type { NamedPath } from '~/lib/types'
 import { usePreferenceProvider } from '~/providers/preference'
 
@@ -27,6 +28,8 @@ interface UseTranscriptExportOptions {
 	showTimestamps: boolean
 	showSpeakers: boolean
 	speakerNames?: SpeakerNames
+	sourceTimecode?: SourceTimecode
+	wrapAt24Hours?: boolean
 }
 
 export function useTranscriptExport({
@@ -40,6 +43,8 @@ export function useTranscriptExport({
 	showTimestamps,
 	showSpeakers,
 	speakerNames,
+	sourceTimecode,
+	wrapAt24Hours = true,
 }: UseTranscriptExportOptions) {
 	const preference = usePreferenceProvider()
 	const speakerLabel = m.speakerPrefix()
@@ -53,6 +58,8 @@ export function useTranscriptExport({
 			title: file?.name ?? '',
 			direction: direction ?? preference.textAreaDirection,
 			theme: preference.exportOptions.theme,
+			sourceTimecode,
+			wrapAt24Hours,
 		}),
 		[
 			content,
@@ -64,6 +71,8 @@ export function useTranscriptExport({
 			showTimestamps,
 			speakerLabel,
 			speakerNames,
+			sourceTimecode,
+			wrapAt24Hours,
 		],
 	)
 	const preview = useMemo(
@@ -113,6 +122,8 @@ export function useTranscriptExport({
 				showTimestamps,
 				showSpeakers,
 				speakerNames,
+				sourceTimecode,
+				wrapAt24Hours,
 				summary,
 				transcriptLabel: m.exportTranscript(),
 				summaryLabel: m.exportSummary(),
@@ -142,6 +153,8 @@ export function useTranscriptExport({
 		showTimestamps,
 		speakerLabel,
 		speakerNames,
+		sourceTimecode,
+		wrapAt24Hours,
 		summary,
 	])
 
