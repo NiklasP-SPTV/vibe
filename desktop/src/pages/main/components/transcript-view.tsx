@@ -5,9 +5,10 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { m } from '~/paraglide/messages.js'
 import { getLocale, getTextDirection } from '~/paraglide/runtime.js'
 import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
 import { formatTimestamp, type Segment, type SpeakerNames } from '~/lib/transcript'
 import { formatSourceTimecode, type SourceTimecode } from '~/lib/timecode'
-import { useSourceTimecode } from '~/lib/source-timecode'
+import { describeSourceTimecode, useSourceTimecode } from '~/lib/source-timecode'
 import { cn } from '~/lib/style'
 import { usePreferenceProvider } from '~/providers/preference'
 import { useSession } from '../session'
@@ -387,7 +388,7 @@ export default function TranscriptView({
 }) {
 	const preference = usePreferenceProvider()
 	const interfaceDirection = getTextDirection(getLocale())
-	const sourceClock = useSourceTimecode(job.path, preference.sourceTimecode)
+	const sourceClock = useSourceTimecode(job.path, job.sourceTimecode, preference.sourceTimecode)
 	const { queue } = useSession()
 	const scrollRef = useRef<HTMLDivElement>(null)
 	const listRef = useRef<HTMLDivElement>(null)
@@ -635,18 +636,18 @@ export default function TranscriptView({
 						onDraftChange={(name) => queue.previewJobName(job.id, name)}
 						onRename={(name) => queue.renameJob(job.id, name)}
 					/>
-					{(/\.(mp4|mov|m4v)$/i.test(job.path) || preference.sourceTimecode.manualTimecode.trim()) && (
-						<p className="-mt-6 mb-7 text-xs text-muted-foreground" role="status">
-							{sourceClock.loading
-								? 'Source-Timecode wird geprüft …'
-								: sourceClock.detected
-									? `Source-Timecode erkannt: ${sourceClock.detected.raw} · ${sourceClock.detected.fps.toFixed(3)} fps${sourceClock.detected.dropFrame ? ' DF' : ' NDF'}${preference.sourceTimecode.enabled ? '' : ' (deaktiviert)'}`
-									: sourceClock.timecode
-										? `Manueller Source-Timecode: ${sourceClock.timecode.raw} · ${sourceClock.timecode.fps.toFixed(3)} fps`
-										: preference.sourceTimecode.enabled
-											? 'Kein Source-Timecode gefunden – Zeitangaben bleiben relativ.'
-											: 'Source-Timecode deaktiviert – Zeitangaben bleiben relativ.'}
-						</p>
+					{preference.sourceTimecode.enabled && (
+						<div className="-mt-6 mb-7 space-y-2">
+							<p className="text-xs text-muted-foreground" role="status">{describeSourceTimecode(sourceClock, job.sourceTimecode, preference.sourceTimecode)}</p>
+							{job.status !== 'running' && (
+								<div className="flex flex-wrap items-center gap-2" aria-label="Start-Timecode bearbeiten">
+									<span className="text-[11px] text-muted-foreground">Start-Timecode</span>
+									<Input aria-label="Start-Timecode" className="h-8 w-36 rounded-lg font-mono text-xs" placeholder="HH:MM:SS:FF" value={job.sourceTimecode?.timecode ?? ''} onChange={(event) => queue.setJobSourceTimecode(job.id, { timecode: event.target.value, fps: job.sourceTimecode?.fps ?? '' })} />
+									<Input aria-label="Framerate" className="h-8 w-24 rounded-lg font-mono text-xs" placeholder="fps" value={job.sourceTimecode?.fps ?? ''} onChange={(event) => queue.setJobSourceTimecode(job.id, { timecode: job.sourceTimecode?.timecode ?? '', fps: event.target.value })} />
+									{job.sourceTimecode && <Button variant="ghost" size="sm" className="h-8 rounded-lg px-2 text-xs" onClick={() => queue.setJobSourceTimecode(job.id, undefined)}>Datei-Timecode verwenden</Button>}
+								</div>
+							)}
+						</div>
 					)}
 
 					{job.status === 'error' && <p className="mb-8 text-sm text-destructive">{job.error}</p>}

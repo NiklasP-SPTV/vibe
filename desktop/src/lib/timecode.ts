@@ -55,7 +55,8 @@ export function parseSourceTimecode(
 ): SourceTimecode | undefined {
 	const rate = typeof frameRate === 'object' ? frameRate : parseFrameRate(frameRate)
 	if (!rate) return undefined
-	const match = timecode.trim().match(/^(\d{1,3}):(\d{2}):(\d{2})([:;])(\d{2})$/)
+	const text = normalizeTimecodeText(timecode)
+	const match = text.match(/^(\d{1,3}):(\d{2}):(\d{2})([:;])(\d{2})$/)
 	if (!match) return undefined
 	const hours = Number(match[1])
 	const minutes = Number(match[2])
@@ -76,7 +77,7 @@ export function parseSourceTimecode(
 		fpsDenominator: rate.denominator,
 		nominalFps: rate.nominal,
 		dropFrame: isDrop,
-		raw: timecode.trim(),
+		raw: text,
 		source,
 	}
 }
@@ -98,8 +99,8 @@ export function parseProbeOutput(output: string): ProbeResult | undefined {
 			: formatTimecode ? { timecode: formatTimecode, source: 'format' as const }
 				: videoTimecode ? { timecode: videoTimecode, source: 'video' as const }
 					: undefined
-		if (!chosen || !frameRate) return undefined
-		return { ...chosen, frameRate }
+		if (!frameRate) return undefined
+		return chosen ? { ...chosen, frameRate } : { frameRate }
 	} catch {
 		return undefined
 	}
@@ -127,7 +128,7 @@ export function parseFfmpegBanner(output: string): ProbeResult | undefined {
 		if (match) timecodes.push({ timecode: match[1], source: current })
 	}
 	const selected = timecodes.find((value) => value.source === 'tmcd') ?? timecodes.find((value) => value.source === 'format') ?? timecodes.find((value) => value.source === 'video')
-	return selected && frameRate ? { ...selected, frameRate } : undefined
+	return frameRate ? (selected ? { ...selected, frameRate } : { frameRate }) : undefined
 }
 
 function frameCount(centiseconds: number, source: SourceTimecode) {
@@ -181,17 +182,60 @@ export function formatSourceMilliseconds(centiseconds: number, source: SourceTim
 	return `${pad(h)}:${pad(m)}:${pad(s)}${separator}${String(ms).padStart(3, '0')}`
 }
 
-export function resolveSourceTimecode(
-	probe: ProbeResult | undefined,
-	settings: { enabled: boolean; manualTimecode: string; manualFps: string },
-): SourceTimecode | undefined {
-	if (!settings.enabled) return undefined
-	if (probe?.timecode && probe.frameRate) {
-		const detected = parseSourceTimecode(probe.timecode, probe.frameRate, probe.source ?? 'video')
-		if (detected) return detected
+/**
+ * Start timecode chosen per file in the start screen (or edited later in the transcript view).
+ * `timecode: ''` means "explicitly no source timecode"; an absent input means "use the file's own".
+ */
+export interface TimecodeInput {
+	timecode: string
+	fps: string
+}
+
+/** Accept what editors type: `09:20:14:08`, `09;20;14;08`, `9:20:14:08` or the bare digits `09201408`. */
+export function normalizeTimecodeText(text: string) {
+	const compact = text.trim().replace(/\s+/g, '')
+	if (/^\d{8}$/.test(compact)) return `${compact.slice(0, 2)}:${compact.slice(2, 4)}:${compact.slice(4, 6)}:${compact.slice(6, 8)}`
+	return compact
+}
+
+/** Human-friendly frame rate for an input field: `25`, `29.97`, `23.976`, `59.94`. */
+export function formatFrameRateInput(value: string | number | undefined) {
+	if (value === undefined) return ''
+	const rate = parseFrameRate(value)
+	if (!rate) return String(value)
+	if (rate.denominator === 1) return String(rate.numerator)
+	if (rate.denominator === 1001) return rate.numerator === 24000 ? '23.976' : rate.numerator === 30000 ? '29.97' : rate.numerator === 60000 ? '59.94' : `${rate.numerator}/1001`
+	return String(Number(rate.fps.toFixed(3)))
+}
+
+/** The detected start timecode of a probed file, when it has a usable one. */
+export function detectedSourceTimecode(probe: ProbeResult | undefined): SourceTimecode | undefined {
+	if (!probe?.timecode || !probe.frameRate) return undefined
+	return parseSourceTimecode(probe.timecode, probe.frameRate, probe.source ?? 'video')
+}
+
+/** Validate a per-file timecode input. An empty timecode is valid and means "relative times". */
+export function parseTimecodeInput(input: TimecodeInput, probe?: ProbeResult): { timecode?: SourceTimecode; error?: string } {
+	const text = normalizeTimecodeText(input.timecode)
+	if (!text) return {}
+	const fps = input.fps.trim() || probe?.frameRate || ''
+	if (!fps) return { error: 'Framerate fehlt' }
+	if (!parseFrameRate(fps)) return { error: 'Ungültige Framerate' }
+	const detected = detectedSourceTimecode(probe)
+	const parsed = parseSourceTimecode(text, fps, 'manual')
+	if (!parsed) return { error: 'Ungültiger Timecode (HH:MM:SS:FF)' }
+	// Same value the file carries: keep the file as the reported source.
+	if (detected && detected.raw === parsed.raw && detected.fpsNumerator * parsed.fpsDenominator === parsed.fpsNumerator * detected.fpsDenominator) {
+		return { timecode: { ...parsed, source: detected.source } }
 	}
-	const manual = settings.manualTimecode.trim() && settings.manualFps.trim()
-		? parseSourceTimecode(settings.manualTimecode, settings.manualFps, 'manual')
-		: undefined
-	return manual
+	return { timecode: parsed }
+}
+
+/**
+ * Resolve the timecode used for display and export.
+ * Priority: the per-file input (start screen / transcript view), then the timecode found in the file.
+ */
+export function resolveSourceTimecode(probe: ProbeResult | undefined, input?: TimecodeInput): SourceTimecode | undefined {
+	if (input) return parseTimecodeInput(input, probe).timecode
+	return detectedSourceTimecode(probe)
 }

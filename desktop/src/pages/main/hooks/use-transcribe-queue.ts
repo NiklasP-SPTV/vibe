@@ -10,6 +10,7 @@ import * as config from '~/lib/config'
 import { KEEP_AWAKE, startKeepAwake, stopKeepAwake } from '~/lib/keep-awake'
 import { validPath } from '~/lib/media'
 import { getSourceTimecode } from '~/lib/source-timecode'
+import type { TimecodeInput } from '~/lib/timecode'
 import { exportTranscript, sharedFolder, summarizeResults, tauriExportIo, type AutoExportResult } from '~/lib/auto-export'
 import { openPath } from '~/lib/app'
 import { notify } from '~/lib/notify'
@@ -24,6 +25,7 @@ import {
 	updateTranscriptSegments,
 	updateTranscriptSpeakerNames,
 	updateTranscriptSummary,
+	updateTranscriptSourceTimecode,
 	updateTranscriptThread,
 	type AiThreadEntry,
 	type TranscriptRecord,
@@ -39,12 +41,16 @@ export type JobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled'
 
 /** One transcription input. `projectName` re-runs an existing project under the title it already has. */
 export interface EnqueueItem extends NamedPath {
+	/** Per-file timecode entered in the start screen; absent means use embedded metadata. */
+	sourceTimecode?: TimecodeInput
 	/** Title of the project this input came from; used verbatim, without a source prefix. */
 	projectName?: string
 }
 
 export interface Job {
 	id: string
+	/** Start timecode selected for this file; absent means use embedded metadata. */
+	sourceTimecode?: TimecodeInput
 	name: string
 	path: string
 	/** Origin of this newly created project. */
@@ -112,6 +118,8 @@ export interface TranscribeQueue {
 	hydrate: (record: TranscriptRecord, savedPath: string, audioPath?: string | null, source?: ProjectSource) => string | null
 	/** Inline edit of one segment's text. Persists to the job's saved file when it has one. */
 	updateSegmentText: (jobId: string, segmentIndex: number, text: string) => void
+	/** Set or clear the per-project start timecode. */
+	setJobSourceTimecode: (jobId: string, sourceTimecode: TimecodeInput | undefined) => void
 	/** Rename the visible project and its persisted record, when one exists. */
 	renameJob: (jobId: string, name: string) => Promise<boolean>
 	/** Update the visible title while the inline rename editor is open. */
@@ -301,7 +309,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 		async (job: Job, segments: Segment[]): Promise<AutoExportResult | null> => {
 			const current = preferenceRef.current
 			if (!current.autoExport.enabled || segments.length === 0) return null
-			const sourceTimecode = await getSourceTimecode(job.path, current.sourceTimecode)
+			const sourceTimecode = await getSourceTimecode(job.path, job.sourceTimecode, current.sourceTimecode)
 			const result = await exportTranscript(
 				{ name: job.name, path: job.path, segments, summary: job.summary, speakerNames: job.speakerNames, sourceTimecode, wrapAt24Hours: current.sourceTimecode.wrapAt24Hours },
 				current.autoExport,
@@ -339,6 +347,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 				segments,
 				language: current.modelOptions.lang,
 				modelPath: current.modelPath,
+				sourceTimecode: job.sourceTimecode,
 			}).then((saved) => {
 				if (!saved) return
 				// Vibe-owned staging media may be gone now; switch playback to the durable project copy
@@ -584,6 +593,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 				// "File-multi" into "File-File-multi" on every run.
 				name: file.projectName ?? autoProjectName(file.name, file.source ?? 'file'),
 				path: file.path,
+				sourceTimecode: file.sourceTimecode,
 				source: file.source ?? 'file',
 				status: 'queued',
 				progress: 0,
@@ -612,6 +622,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 				status: 'done',
 				progress: 100,
 				segments: record.segments,
+				sourceTimecode: record.sourceTimecode,
 				savedPath,
 				hydrated: true,
 				summary: record.summary,
@@ -630,6 +641,16 @@ export function useTranscribeQueue(): TranscribeQueue {
 	 * Replace the text of one segment. The write back to the store is fire-and-forget for the same
 	 * reason `persist` is: an unwritable file must not cost the user their edit on screen.
 	 */
+	const setJobSourceTimecode = useCallback(
+		(jobId: string, sourceTimecode: TimecodeInput | undefined) => {
+			const job = jobsRef.current.find((candidate) => candidate.id === jobId)
+			if (!job) return
+			commit(jobsRef.current.map((candidate) => (candidate.id === jobId ? { ...candidate, sourceTimecode } : candidate)))
+			if (job.savedPath) void updateTranscriptSourceTimecode(job.savedPath, sourceTimecode)
+		},
+		[commit],
+	)
+
 	const updateSegmentText = useCallback(
 		(jobId: string, segmentIndex: number, text: string) => {
 			const job = jobsRef.current.find((candidate) => candidate.id === jobId)
@@ -756,6 +777,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 		transcribeJob,
 		hydrate,
 		updateSegmentText,
+		setJobSourceTimecode,
 		renameJob,
 		previewJobName,
 		setJobSummary,

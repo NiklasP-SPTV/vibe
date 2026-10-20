@@ -10,6 +10,8 @@ import * as config from '~/lib/config'
 import { pathToNamedPath } from '~/lib/fs'
 import { cleanupPartialDownloads, listInstalledModels, type InstalledModel } from '~/lib/model'
 import { autoProjectName } from '~/lib/project-name'
+import { prefillFromProbe, probeSourceTimecode } from '~/lib/source-timecode'
+import type { TimecodeInput } from '~/lib/timecode'
 import { notifyTranscriptsChanged, saveTranscript, TRANSCRIPT_VERSION, type TranscriptRecord } from '~/lib/transcripts-store'
 import type { NamedPath, ProjectSource } from '~/lib/types'
 import { useConfirmExit } from '~/lib/use-confirm-exit'
@@ -29,8 +31,17 @@ export type IdlePanel = 'none' | 'record' | 'link'
 type Recording = ReturnType<typeof useRecording>
 type AudioDownload = ReturnType<typeof useAudioDownload>
 
+export interface PendingFile extends NamedPath {
+	sourceTimecode: TimecodeInput
+}
+
 export interface Session {
 	mode: SessionMode
+	pendingFiles: PendingFile[]
+	pendingLoading: boolean
+	updatePendingTimecode: (path: string, sourceTimecode: TimecodeInput) => void
+	startPendingTranscription: () => void
+	cancelPendingFiles: () => void
 	queue: TranscribeQueue
 	/** AI summaries of finished transcripts (settings → Summarize). */
 	summaries: Summaries
@@ -65,6 +76,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	const summaries = useSummaries(queue)
 	const [panel, setPanel] = useState<IdlePanel>('none')
 	const [collectingFolder, setCollectingFolder] = useState(false)
+	const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
+	const [pendingLoading, setPendingLoading] = useState(false)
 	const [recordElapsed, setRecordElapsed] = useState(0)
 
 	const enqueueRef = useRef(queue.enqueue)
@@ -104,10 +117,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 					setCollectingFolder(false)
 				}
 			}
-			if (files.length) enqueueRef.current(files)
+			if (!files.length) return
+			// On a fresh start, offer per-file timecode review before the queue begins. Files added
+			// during an existing session retain the established append-to-queue behaviour.
+			if (queue.jobs.length === 0 && !queue.running) {
+				setPendingLoading(true)
+				setPendingFiles([])
+				const prepared = await Promise.all(files.map(async (file) => {
+					const probe = await probeSourceTimecode(file.path)
+					return { ...file, sourceTimecode: prefillFromProbe(probe, '') }
+				}))
+				setPendingFiles(prepared)
+				setPendingLoading(false)
+				return
+			}
+			queue.enqueue(files)
 		},
-		[preference.advancedTranscribeOptions.includeSubFolders],
+		[preference.advancedTranscribeOptions.includeSubFolders, queue.jobs.length, queue.running, queue.enqueue],
 	)
+
+	const updatePendingTimecode = useCallback((path: string, sourceTimecode: TimecodeInput) => {
+		setPendingFiles((files) => files.map((file) => file.path === path ? { ...file, sourceTimecode } : file))
+	}, [])
+	const startPendingTranscription = useCallback(() => {
+		if (!pendingFiles.length || pendingLoading) return
+		queue.enqueue(pendingFiles)
+		setPendingFiles([])
+	}, [pendingFiles, pendingLoading, queue.enqueue])
+	const cancelPendingFiles = useCallback(() => setPendingFiles([]), [])
+
 
 	const dragging = useDropTarget(
 		useCallback(
@@ -238,6 +276,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	}, [enqueuePaths])
 
 	const startNew = useCallback(() => {
+		setPendingFiles([])
 		queue.reset()
 		setPanel('none')
 	}, [queue])
@@ -314,6 +353,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	const value = useMemo<Session>(
 		() => ({
 			mode,
+			pendingFiles,
+			pendingLoading,
+			updatePendingTimecode,
+			startPendingTranscription,
+			cancelPendingFiles,
 			queue,
 			summaries,
 			preference,
@@ -327,7 +371,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 			browse,
 			startNew,
 		}),
-		[mode, queue, summaries, preference, dragging, panel, recording, recordElapsed, link, collectingFolder, browse, startNew],
+		[mode, pendingFiles, pendingLoading, updatePendingTimecode, startPendingTranscription, cancelPendingFiles, queue, summaries, preference, dragging, panel, recording, recordElapsed, link, collectingFolder, browse, startNew],
 	)
 
 	return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

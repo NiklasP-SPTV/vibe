@@ -30,6 +30,7 @@ export interface TranscriptExportDialogProps {
 	onShowSpeakersChange: (show: boolean) => void
 	preview: string
 	timecodeNotice?: string
+	timecodeLoading?: boolean
 	renderedPreview?: string
 	direction: 'rtl' | 'ltr'
 	/** Direction of this export only — a one-off override, never saved. */
@@ -234,6 +235,7 @@ export default function TranscriptExportDialog({
 	onShowSpeakersChange,
 	preview,
 	timecodeNotice,
+	timecodeLoading = false,
 	renderedPreview,
 	direction,
 	onDirectionChange,
@@ -408,12 +410,12 @@ export default function TranscriptExportDialog({
 
 				<DialogFooter className="shrink-0 gap-2 border-t border-border/60 bg-card px-5 py-4 sm:px-6">
 					{format !== 'html' && format !== 'docx' && format !== 'pdf' && (
-						<Button type="button" variant="outline" onClick={() => void onCopy()}>
+						<Button type="button" variant="outline" disabled={timecodeLoading} onClick={() => void onCopy()}>
 							<Clipboard aria-hidden="true" />
 							{m.exportCopy()}
 						</Button>
 					)}
-					<Button type="button" onClick={() => void onSave()}>
+					<Button type="button" disabled={timecodeLoading} onClick={() => void onSave()}>
 						<Download aria-hidden="true" />
 						{m.exportSave()}
 					</Button>

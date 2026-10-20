@@ -14,7 +14,7 @@ import type { TextFormat } from '~/components/format-select'
 import type { Job } from '../hooks/use-transcribe-queue'
 import type { TranscriptTab, TranscriptTextSize, TranscriptViewOptions } from '../hooks/use-transcript-view'
 import { useTranscriptExport } from '../hooks/use-transcript-export'
-import { useSourceTimecode } from '~/lib/source-timecode'
+import { describeSourceTimecode, useSourceTimecode } from '~/lib/source-timecode'
 import TranscriptExportDialog from './transcript-export-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 import { useSession } from '../session'
@@ -223,14 +223,8 @@ export default function TranscriptToolbar({
 	const [exportOpen, setExportOpen] = useState(false)
 	const autoExport = preference.autoExport
 	const exportOptions = preference.exportOptions
-	const sourceClock = useSourceTimecode(job?.path ?? '', preference.sourceTimecode)
-	const timecodeNotice = sourceClock.loading
-		? 'Source-Timecode wird geprüft …'
-		: sourceClock.detected
-			? `Source-Timecode erkannt: ${sourceClock.detected.raw}${preference.sourceTimecode.enabled ? ' (wird verwendet)' : ' (deaktiviert)'}`
-			: sourceClock.timecode
-				? `Manueller Source-Timecode-Fallback: ${sourceClock.timecode.raw}`
-				: 'Kein Source-Timecode gefunden – Zeitangaben bleiben relativ.'
+	const sourceClock = useSourceTimecode(job?.path ?? '', job?.sourceTimecode, preference.sourceTimecode)
+	const timecodeNotice = describeSourceTimecode(sourceClock, job?.sourceTimecode, preference.sourceTimecode)
 	// Each control changes one field of the stored object.
 	const updateExport = (patch: Partial<typeof exportOptions>) => preference.setExportOptions({ ...exportOptions, ...patch })
 	// A one-off override: the dialog opens on the transcript's own direction every time.
@@ -410,6 +404,7 @@ export default function TranscriptToolbar({
 				onShowSpeakersChange={(showSpeakers) => updateExport({ showSpeakers })}
 				preview={exporter.preview}
 				timecodeNotice={timecodeNotice}
+				timecodeLoading={sourceClock.loading}
 				renderedPreview={exporter.renderedPreview}
 				direction={exportDirection}
 				onDirectionChange={setExportDirection}

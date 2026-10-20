@@ -1,5 +1,6 @@
 import * as pathApi from '@tauri-apps/api/path'
 import * as fs from '@tauri-apps/plugin-fs'
+import type { TimecodeInput } from './timecode'
 import type { Segment, SpeakerNames } from './transcript'
 
 /**
@@ -42,6 +43,8 @@ export interface TranscriptRecord {
 	summary?: string
 	/** Questions asked about this transcript and the model's answers, oldest first. */
 	thread?: AiThreadEntry[]
+	/** Start timecode chosen for this project in the start screen; absent = use the file's own. */
+	sourceTimecode?: TimecodeInput
 }
 
 export interface AiThreadEntry {
@@ -80,6 +83,8 @@ export interface SaveTranscriptInput {
 	language?: string
 	modelPath?: string | null
 	createdAt?: Date
+	/** Per-project start timecode from the start screen. */
+	sourceTimecode?: TimecodeInput
 }
 
 export interface SaveTranscriptResult {
@@ -172,6 +177,14 @@ function parseSpeakerNames(value: unknown): SpeakerNames | undefined {
 		if (Number.isInteger(speaker) && speaker >= 0 && typeof name === 'string' && name.trim()) names[speaker] = name.trim()
 	}
 	return Object.keys(names).length ? names : undefined
+}
+
+/** A stored per-project start timecode; anything malformed counts as "use the file's own". */
+function parseSourceTimecodeInput(value: unknown): TimecodeInput | undefined {
+	if (typeof value !== 'object' || value === null) return undefined
+	const candidate = value as Partial<TimecodeInput>
+	if (typeof candidate.timecode !== 'string' || typeof candidate.fps !== 'string') return undefined
+	return { timecode: candidate.timecode, fps: candidate.fps }
 }
 
 function serialize(record: TranscriptRecord) {
@@ -281,6 +294,7 @@ export async function saveTranscript(input: SaveTranscriptInput): Promise<SaveTr
 			language: input.language,
 			modelPath: input.modelPath ?? null,
 			segments: input.segments,
+			...(input.sourceTimecode ? { sourceTimecode: input.sourceTimecode } : {}),
 		}
 
 		let media: { audioFile: string; path: string } | undefined
@@ -368,6 +382,7 @@ export async function readTranscript(path: string): Promise<TranscriptRecord | n
 			speakerNames: parseSpeakerNames(parsed.speakerNames),
 			summary: typeof parsed.summary === 'string' ? parsed.summary : undefined,
 			thread: parseThread(parsed.thread),
+			sourceTimecode: parseSourceTimecodeInput(parsed.sourceTimecode),
 		}
 	} catch (error) {
 		console.warn('failed to read transcript:', path, error)
@@ -443,6 +458,19 @@ export async function updateTranscriptSummary(path: string, summary: string): Pr
 		return true
 	} catch (error) {
 		console.warn('failed to update transcript summary:', path, error)
+		return false
+	}
+}
+
+/** Store (or clear, with `undefined`) the per-project start timecode. @returns whether it was written. */
+export async function updateTranscriptSourceTimecode(path: string, sourceTimecode: TimecodeInput | undefined): Promise<boolean> {
+	try {
+		const record = await readTranscript(path)
+		if (!record) return false
+		await writeRecordAtomic(path, { ...record, sourceTimecode })
+		return true
+	} catch (error) {
+		console.warn('failed to update transcript source timecode:', path, error)
 		return false
 	}
 }
