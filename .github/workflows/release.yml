@@ -118,3 +118,41 @@ jobs:
                   args: ${{ matrix.args }} ${{ matrix.platform == 'windows-latest' && inputs.sign-windows && '--config src-tauri/tauri.windows.signing.conf.json' || '' }}
                   projectPath: "./desktop"
                   tauriScript: pnpm exec tauri
+
+            # Unsigned macOS builds need the quarantine flag removed once after installing. Tauri cannot put
+            # extra files into the DMG, so the finished image is opened, given the note and uploaded again.
+            # Best effort: if anything here fails, the plain DMG from the build step stays in the release.
+            - name: Add the install note to the DMG
+              if: matrix.platform == 'macos-latest' && !inputs.sign-macos
+              continue-on-error: true
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -euo pipefail
+                  version=$(python3 -c 'import json; print(json.load(open("desktop/src-tauri/tauri.conf.json"))["version"])')
+                  dmg=$(ls target/${{ matrix.target_triple }}/release/bundle/dmg/*.dmg | head -1)
+                  note="desktop/src-tauri/dmg/ZUERST LESEN - Installation.txt"
+                  work=$(mktemp -d)
+                  hdiutil convert "$dmg" -format UDRW -o "$work/rw.dmg"
+                  # The read-write copy is sized to its contents; give the note room.
+                  size_mb=$(( $(stat -f%z "$work/rw.dmg") / 1048576 + 16 ))
+                  hdiutil resize -size "${size_mb}m" "$work/rw.dmg"
+                  mount=$(hdiutil attach "$work/rw.dmg" -readwrite -noverify -noautoopen | grep -o '/Volumes/.*' | head -1)
+                  cp "$note" "$mount/"
+                  # Place it above "drag and drop"; Finder scripting may be unavailable on the runner.
+                  osascript <<APPLESCRIPT || echo "::warning::could not position the install note"
+                  tell application "Finder"
+                      tell disk "$(basename "$mount")"
+                          open
+                          set position of item "$(basename "$note")" of container window to {360, 62}
+                          update without registering applications
+                          delay 1
+                          close
+                      end tell
+                  end tell
+                  APPLESCRIPT
+                  sync
+                  hdiutil detach "$mount" || hdiutil detach -force "$mount"
+                  hdiutil convert "$work/rw.dmg" -format UDZO -imagekey zlib-level=9 -ov -o "$dmg"
+                  gh release upload "v$version" "$dmg" --clobber --repo "${{ github.repository }}"

@@ -1,0 +1,35 @@
+VIBE AUF DEM MAC INSTALLIEREN
+=============================
+
+1. Ziehe "vibe" auf den Ordner "Applications" (Programme).
+
+2. Öffne das Terminal
+   (Spotlight mit Cmd + Leertaste öffnen, "Terminal" eingeben, Enter).
+
+3. Kopiere diese Zeile, füge sie im Terminal ein und drücke Enter:
+
+xattr -cr /Applications/vibe.app
+
+4. Starte Vibe ganz normal aus dem Programme-Ordner.
+
+
+WARUM IST DAS NÖTIG?
+--------------------
+Diese Vibe-Version ist nicht mit einem Apple-Entwicklerzertifikat
+signiert. macOS markiert heruntergeladene Apps deshalb als
+"beschädigt" und verweigert den Start. Die App ist nicht beschädigt.
+
+Der Befehl entfernt nur die Download-Markierung ("Quarantäne") von
+Vibe. Er verändert nichts an der App und nichts an anderen Programmen.
+
+Das ist nach jeder neuen Vibe-Version einmal nötig.
+
+
+FALLS VIBE DANACH IMMER NOCH NICHT STARTET
+------------------------------------------
+Diese Zeile zusätzlich im Terminal ausführen:
+
+codesign --force --deep --sign - /Applications/vibe.app
+
+Sie versieht Vibe lokal mit einer einfachen Signatur, die Macs mit
+Apple-Chip (M1, M2, M3 ...) zum Starten verlangen.
