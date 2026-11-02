@@ -3,8 +3,8 @@ import { usePersisted } from '~/lib/config-store'
 
 export type TranscriptTextSize = 'sm' | 'md' | 'lg'
 
-/** Which of the two readings of a job is on screen. */
-export type TranscriptTab = 'transcript' | 'summary'
+/** Which reading of a job is on screen: the transcript, its translation or the AI summary. */
+export type TranscriptTab = 'transcript' | 'translation' | 'summary'
 
 export interface TranscriptViewOptions {
 	textSize: TranscriptTextSize

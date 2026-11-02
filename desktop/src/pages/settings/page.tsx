@@ -8,6 +8,7 @@ import {
 	Cpu,
 	Globe,
 	Keyboard,
+	Languages,
 	Mic,
 	ShieldCheck,
 	SlidersHorizontal,
@@ -35,6 +36,7 @@ import { RecordingSection } from './sections/recording'
 import { AiSection, type AiTaskId } from './sections/ai'
 import { AiPromptSection } from './sections/ai-prompt'
 import { TranscriptionSection } from './sections/transcription'
+import { TranslationSection } from './sections/translation'
 import { TuningSection } from './sections/tuning'
 import { WhisperOptionsSection } from './sections/whisper-options'
 import { AudioProcessingSection } from './sections/audio-processing'
@@ -44,7 +46,7 @@ interface SettingsPageProps {
 	scrollTo?: string
 }
 
-type SectionId = 'general' | 'transcription' | 'models' | 'ai' | 'tuning' | 'recording' | 'dictation' | 'phone' | 'api' | 'privacy' | 'advanced'
+type SectionId = 'general' | 'transcription' | 'translation' | 'models' | 'ai' | 'tuning' | 'recording' | 'dictation' | 'phone' | 'api' | 'privacy' | 'advanced'
 
 type Subpage = 'auto-export' | 'ai-summary' | 'ai-dictation' | 'whisper-options' | 'audio-processing' | 'phone-pairing'
 
@@ -67,6 +69,7 @@ export default function SettingsPage({ setVisible, scrollTo }: SettingsPageProps
 		],
 		[
 			{ id: 'transcription', label: m.transcription(), icon: <SlidersHorizontal className="h-4 w-4" /> },
+			{ id: 'translation', label: 'Übersetzung', icon: <Languages className="h-4 w-4" /> },
 			{ id: 'models', label: m.navModels(), icon: <Bot className="h-4 w-4" /> },
 			{ id: 'tuning', label: m.navTuning(), icon: <Cpu className="h-4 w-4" /> },
 		],
@@ -225,6 +228,8 @@ export default function SettingsPage({ setVisible, scrollTo }: SettingsPageProps
 							{!subpage && activeSection === 'transcription' && (
 								<TranscriptionSection vm={vm} onOpenAutoExport={() => openSubpage('auto-export')} />
 							)}
+
+							{!subpage && activeSection === 'translation' && <TranslationSection />}
 
 							{!subpage && activeSection === 'models' && <ModelsSection vm={vm} />}
 

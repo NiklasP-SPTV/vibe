@@ -11,6 +11,7 @@ import { KEEP_AWAKE, startKeepAwake, stopKeepAwake } from '~/lib/keep-awake'
 import { validPath } from '~/lib/media'
 import { getSourceTimecode } from '~/lib/source-timecode'
 import type { TimecodeInput } from '~/lib/timecode'
+import type { Translation, TranslationRequest } from '~/lib/translation'
 import { exportTranscript, sharedFolder, summarizeResults, tauriExportIo, type AutoExportResult } from '~/lib/auto-export'
 import { openPath } from '~/lib/app'
 import { notify } from '~/lib/notify'
@@ -26,6 +27,7 @@ import {
 	updateTranscriptSpeakerNames,
 	updateTranscriptSummary,
 	updateTranscriptSourceTimecode,
+	updateTranscriptTranslation,
 	updateTranscriptThread,
 	type AiThreadEntry,
 	type TranscriptRecord,
@@ -45,6 +47,8 @@ export interface EnqueueItem extends NamedPath {
 	sourceTimecode?: TimecodeInput
 	/** Title of the project this input came from; used verbatim, without a source prefix. */
 	projectName?: string
+	/** Translate the finished transcript with DeepL, as chosen in the start screen. */
+	translation?: TranslationRequest
 }
 
 export interface Job {
@@ -74,6 +78,10 @@ export interface Job {
 	speakerNames?: SpeakerNames
 	/** What auto-export did with this transcript, when it ran. */
 	exported?: AutoExportResult
+	/** Translation asked for when the job was queued; run once the transcript is done. */
+	translationRequest?: TranslationRequest
+	/** DeepL translation of the segments, aligned by index. */
+	translation?: Translation
 }
 
 /** A run of two or more files: what batch users watch instead of the transcripts. */
@@ -120,6 +128,8 @@ export interface TranscribeQueue {
 	updateSegmentText: (jobId: string, segmentIndex: number, text: string) => void
 	/** Set or clear the per-project start timecode. */
 	setJobSourceTimecode: (jobId: string, sourceTimecode: TimecodeInput | undefined) => void
+	/** Set or clear the translation. Resolves true once it is in the saved project file. */
+	setJobTranslation: (jobId: string, translation: Translation | undefined) => Promise<boolean>
 	/** Rename the visible project and its persisted record, when one exists. */
 	renameJob: (jobId: string, name: string) => Promise<boolean>
 	/** Update the visible title while the inline rename editor is open. */
@@ -594,6 +604,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 				name: file.projectName ?? autoProjectName(file.name, file.source ?? 'file'),
 				path: file.path,
 				sourceTimecode: file.sourceTimecode,
+				translationRequest: file.translation,
 				source: file.source ?? 'file',
 				status: 'queued',
 				progress: 0,
@@ -628,6 +639,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 				summary: record.summary,
 				thread: record.thread,
 				speakerNames: record.speakerNames,
+				translation: record.translation,
 			}
 			pinnedRef.current = true
 			commit(runningRef.current ? [...jobsRef.current, job] : [job])
@@ -647,6 +659,16 @@ export function useTranscribeQueue(): TranscribeQueue {
 			if (!job) return
 			commit(jobsRef.current.map((candidate) => (candidate.id === jobId ? { ...candidate, sourceTimecode } : candidate)))
 			if (job.savedPath) void updateTranscriptSourceTimecode(job.savedPath, sourceTimecode)
+		},
+		[commit],
+	)
+
+	const setJobTranslation = useCallback(
+		async (jobId: string, translation: Translation | undefined) => {
+			const job = jobsRef.current.find((candidate) => candidate.id === jobId)
+			if (!job) return false
+			commit(jobsRef.current.map((candidate) => (candidate.id === jobId ? { ...candidate, translation } : candidate)))
+			return job.savedPath ? updateTranscriptTranslation(job.savedPath, translation) : false
 		},
 		[commit],
 	)
@@ -778,6 +800,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 		hydrate,
 		updateSegmentText,
 		setJobSourceTimecode,
+		setJobTranslation,
 		renameJob,
 		previewJobName,
 		setJobSummary,

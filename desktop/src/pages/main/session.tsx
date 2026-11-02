@@ -23,6 +23,8 @@ import { useAudioDownload } from '~/pages/home/hooks/use-audio-download'
 import { useRecording } from '~/pages/home/hooks/use-recording'
 import { useDropTarget } from './hooks/use-drop-target'
 import { useAutoBurnIn } from './hooks/use-auto-burn-in'
+import { useAutoTranslate } from './hooks/use-auto-translate'
+import type { TranslationRequest } from '~/lib/translation'
 import { useSummaries, type Summaries } from './hooks/use-summaries'
 import { useTranscribeQueue, type TranscribeQueue } from './hooks/use-transcribe-queue'
 
@@ -41,7 +43,8 @@ export interface Session {
 	pendingFiles: PendingFile[]
 	pendingLoading: boolean
 	updatePendingTimecode: (path: string, sourceTimecode: TimecodeInput) => void
-	startPendingTranscription: () => void
+	/** Start the files from the start screen, optionally translating each finished transcript. */
+	startPendingTranscription: (translation?: TranslationRequest) => void
 	cancelPendingFiles: () => void
 	queue: TranscribeQueue
 	/** AI summaries of finished transcripts (settings → Summarize). */
@@ -76,6 +79,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	const queue = useTranscribeQueue()
 	const summaries = useSummaries(queue)
 	useAutoBurnIn(queue.jobs)
+	useAutoTranslate(queue)
 	const [panel, setPanel] = useState<IdlePanel>('none')
 	const [collectingFolder, setCollectingFolder] = useState(false)
 	const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
@@ -141,9 +145,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	const updatePendingTimecode = useCallback((path: string, sourceTimecode: TimecodeInput) => {
 		setPendingFiles((files) => files.map((file) => file.path === path ? { ...file, sourceTimecode } : file))
 	}, [])
-	const startPendingTranscription = useCallback(() => {
+	const startPendingTranscription = useCallback((translation?: TranslationRequest) => {
 		if (!pendingFiles.length || pendingLoading) return
-		queue.enqueue(pendingFiles)
+		queue.enqueue(pendingFiles.map((file) => ({ ...file, translation })))
 		setPendingFiles([])
 	}, [pendingFiles, pendingLoading, queue.enqueue])
 	const cancelPendingFiles = useCallback(() => setPendingFiles([]), [])

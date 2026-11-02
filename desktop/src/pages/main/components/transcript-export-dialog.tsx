@@ -24,6 +24,10 @@ export interface TranscriptExportDialogProps {
 	content: TranscriptExportContent
 	onContentChange: (content: TranscriptExportContent) => void
 	hasSummary: boolean
+	/** Name of the translation's language when the transcript has one; shows the language choice. */
+	translationLabel?: string
+	exportTranslation?: boolean
+	onExportTranslationChange?: (translation: boolean) => void
 	showTimestamps: boolean
 	onShowTimestampsChange: (show: boolean) => void
 	showSpeakers: boolean
@@ -229,6 +233,9 @@ export default function TranscriptExportDialog({
 	content,
 	onContentChange,
 	hasSummary,
+	translationLabel,
+	exportTranslation = false,
+	onExportTranslationChange,
 	showTimestamps,
 	onShowTimestampsChange,
 	showSpeakers,
@@ -310,6 +317,21 @@ export default function TranscriptExportDialog({
 										options={contentOptions}
 									/>
 								</OptionRow>
+
+								{translationLabel && onExportTranslationChange && (
+									<OptionRow label="Sprache">
+										<Segmented
+											className="w-52"
+											ariaLabel="Sprache des Exports"
+											value={exportTranslation ? 'translation' : 'original'}
+											onChange={(value) => onExportTranslationChange(value === 'translation')}
+											options={[
+												{ value: 'original', label: 'Original', disabled: false },
+												{ value: 'translation', label: translationLabel, disabled: false },
+											]}
+										/>
+									</OptionRow>
+								)}
 
 								<OptionRow label={m.theme()}>
 									<IconToggle

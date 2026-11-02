@@ -381,11 +381,14 @@ export default function TranscriptView({
 	query,
 	options,
 	tab = 'transcript',
+	readOnly = false,
 }: {
 	job: Job
 	query: string
 	options: TranscriptViewOptions
 	tab?: TranscriptTab
+	/** The translation reuses this view; its text is not editable. */
+	readOnly?: boolean
 }) {
 	const preference = usePreferenceProvider()
 	const interfaceDirection = getTextDirection(getLocale())
@@ -396,7 +399,7 @@ export default function TranscriptView({
 	const scrollRef = useRef<HTMLDivElement>(null)
 	const listRef = useRef<HTMLDivElement>(null)
 	const running = job.status === 'running'
-	const editable = !running && (job.status === 'done' || job.hydrated === true)
+	const editable = !readOnly && !running && (job.status === 'done' || job.hydrated === true)
 
 	const [editing, setEditing] = useState<EditTarget | null>(null)
 	const [activeIndex, setActiveIndex] = useState(-1)
@@ -623,7 +626,7 @@ export default function TranscriptView({
 		[job.segments],
 	)
 
-	const showJump = playing && jumpVisible && !following && activeIndex >= 0 && tab === 'transcript'
+	const showJump = playing && jumpVisible && !following && activeIndex >= 0 && tab !== 'summary'
 	const canTranscribeSaved =
 		job.hydrated === true && ['done', 'error', 'cancelled'].includes(job.status) && job.segments.length === 0 && Boolean(job.savedPath && job.path)
 

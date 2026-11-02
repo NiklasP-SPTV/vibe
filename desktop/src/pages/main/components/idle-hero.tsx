@@ -11,9 +11,11 @@ import { Spinner } from '~/components/ui/spinner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
 import { cn } from '~/lib/style'
 import { parseTimecodeInput } from '~/lib/timecode'
+import { useTranslationSettings } from '~/lib/translation'
 import { parseMediaLinks } from '~/lib/ytdlp'
 import { useSession, type IdlePanel } from '../session'
 import QuietRow from './quiet-row'
+import { TranslationOptions, type TranslationChoice } from './translation-options'
 
 function formatElapsed(seconds: number) {
 	const minutes = Math.floor(seconds / 60)
@@ -324,6 +326,17 @@ export default function IdleHero() {
 
 	const pendingTimecodeErrors = new Map<string, string | undefined>(pendingFiles.map((file) => [file.path, parseTimecodeInput(file.sourceTimecode).error] as const))
 	const pendingInvalid = [...pendingTimecodeErrors.values()].some(Boolean)
+	const translation = useTranslationSettings()
+	const [translationChoice, setTranslationChoice] = useState<TranslationChoice>({ enabled: false, target: 'DE', source: '' })
+	const hasPending = pendingFiles.length > 0
+	// Every new batch of files starts from the defaults in settings.
+	useEffect(() => {
+		if (hasPending) setTranslationChoice({ enabled: translation.settings.translateByDefault, target: translation.settings.defaultTarget, source: '' })
+	}, [hasPending])
+	const translate = translation.configured && translationChoice.enabled
+	function startPending() {
+		startPendingTranscription(translate ? { target: translationChoice.target, source: translationChoice.source || undefined } : undefined)
+	}
 
 	function selectPanel(next: IdlePanel) {
 		if (recording.isRecording || next === panel) return
@@ -389,9 +402,12 @@ export default function IdleHero() {
 										</div>
 										))}
 									</div>
+									<TranslationOptions configured={translation.configured} choice={translationChoice} onChange={setTranslationChoice} />
 									<div className="flex justify-end gap-2">
 										<Button variant="ghost" className="h-9 rounded-lg" onClick={cancelPendingFiles}>Abbrechen</Button>
-										<Button className="h-9 rounded-lg" disabled={!preference.modelPath || pendingLoading || pendingInvalid} onClick={startPendingTranscription}>{m.transcribe()} · {pendingFiles.length}</Button>
+										<Button className="h-9 rounded-lg" disabled={!preference.modelPath || pendingLoading || pendingInvalid} onClick={startPending}>
+											{translate ? 'Transkribieren & übersetzen' : m.transcribe()} · {pendingFiles.length}
+										</Button>
 									</div>
 								</div>
 							)}

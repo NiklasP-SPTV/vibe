@@ -1,6 +1,7 @@
 import * as pathApi from '@tauri-apps/api/path'
 import * as fs from '@tauri-apps/plugin-fs'
 import type { TimecodeInput } from './timecode'
+import type { Translation } from './translation'
 import type { Segment, SpeakerNames } from './transcript'
 
 /**
@@ -45,6 +46,8 @@ export interface TranscriptRecord {
 	thread?: AiThreadEntry[]
 	/** Start timecode chosen for this project in the start screen; absent = use the file's own. */
 	sourceTimecode?: TimecodeInput
+	/** DeepL translation of the segments, aligned with them by index. */
+	translation?: Translation
 }
 
 export interface AiThreadEntry {
@@ -458,6 +461,19 @@ export async function updateTranscriptSummary(path: string, summary: string): Pr
 		return true
 	} catch (error) {
 		console.warn('failed to update transcript summary:', path, error)
+		return false
+	}
+}
+
+/** Store (or clear, with `undefined`) the project's translation. @returns whether it was written. */
+export async function updateTranscriptTranslation(path: string, translation: Translation | undefined): Promise<boolean> {
+	try {
+		const record = await readTranscript(path)
+		if (!record) return false
+		await writeRecordAtomic(path, { ...record, translation })
+		return true
+	} catch (error) {
+		console.warn('failed to update transcript translation:', path, error)
 		return false
 	}
 }

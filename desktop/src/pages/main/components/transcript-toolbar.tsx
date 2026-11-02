@@ -16,6 +16,9 @@ import type { TranscriptTab, TranscriptTextSize, TranscriptViewOptions } from '.
 import { useTranscriptExport } from '../hooks/use-transcript-export'
 import { describeSourceTimecode, useSourceTimecode } from '~/lib/source-timecode'
 import TranscriptExportDialog from './transcript-export-dialog'
+import { TranslateMenu, TranslationToggle } from './translate-menu'
+import { deeplLanguageLabel } from '~/lib/deepl'
+import { translatedSegments } from '~/lib/translation'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 import { useSession } from '../session'
 
@@ -231,12 +234,15 @@ export default function TranscriptToolbar({
 	const [exportDirection, setExportDirection] = useState(preference.textAreaDirection)
 	const [searching, setSearching] = useState(false)
 	const searchRef = useRef<HTMLInputElement>(null)
+	// Which text the export carries; it opens on whatever is on screen.
+	const [exportTranslation, setExportTranslation] = useState(false)
+	const translationForExport = exportTranslation && job?.translation ? job.translation : undefined
 	const exporter = useTranscriptExport({
 		enabled: exportOpen,
 		direction: exportDirection,
-		segments: job?.segments ?? [],
+		segments: job ? (translationForExport ? translatedSegments(job.segments, translationForExport) : job.segments) : [],
 		summary: job?.summary,
-		file: job ? { name: job.name, path: job.path } : null,
+		file: job ? { name: translationForExport ? `${job.name}_${translationForExport.target}` : job.name, path: job.path } : null,
 		format: exportOptions.format,
 		content: exportOptions.content,
 		showTimestamps: exportOptions.showTimestamps,
@@ -249,6 +255,10 @@ export default function TranscriptToolbar({
 	useEffect(() => {
 		if (exportOpen) setExportDirection(preference.textAreaDirection)
 	}, [exportOpen, preference.textAreaDirection])
+
+	useEffect(() => {
+		if (exportOpen) setExportTranslation(tab === 'translation')
+	}, [exportOpen, tab])
 
 	useEffect(() => {
 		if (!searching) return
@@ -366,6 +376,9 @@ export default function TranscriptToolbar({
 								<Search className="h-3.5 w-3.5" />
 							</Button>
 
+							<TranslationToggle job={job} tab={tab} setTab={setTab} />
+							<TranslateMenu job={job} setTab={setTab} />
+
 							<SummaryMenu job={job} tab={tab} setTab={setTab} />
 
 							<ViewOptions options={options} />
@@ -398,6 +411,9 @@ export default function TranscriptToolbar({
 				content={exportOptions.content}
 				onContentChange={(content) => updateExport({ content })}
 				hasSummary={Boolean(job?.summary)}
+				translationLabel={job?.translation ? deeplLanguageLabel(job.translation.target) : undefined}
+				exportTranslation={exportTranslation}
+				onExportTranslationChange={setExportTranslation}
 				showTimestamps={exportOptions.showTimestamps}
 				onShowTimestampsChange={(showTimestamps) => updateExport({ showTimestamps })}
 				showSpeakers={exportOptions.showSpeakers}

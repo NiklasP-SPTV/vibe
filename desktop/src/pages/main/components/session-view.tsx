@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { translatedSegments } from '~/lib/translation'
 import { useSession } from '../session'
 import { useTranscriptViewOptions, type TranscriptTab } from '../hooks/use-transcript-view'
 import BatchBanner from './batch-banner'
@@ -14,6 +15,12 @@ export default function SessionView() {
 	const options = useTranscriptViewOptions()
 	const multiple = queue.jobs.length > 1
 	const selected = queue.selectedJob
+	// The translation is shown through the same view, with translated text and editing switched off.
+	const showTranslation = tab === 'translation' && Boolean(selected?.translation)
+	const shown = useMemo(
+		() => (showTranslation && selected?.translation ? { ...selected, segments: translatedSegments(selected.segments, selected.translation) } : selected),
+		[selected, showTranslation],
+	)
 
 	useEffect(() => {
 		setQuery('')
@@ -42,7 +49,7 @@ export default function SessionView() {
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 				<BatchBanner />
 				<TranscriptToolbar job={selected} query={query} setQuery={setQuery} options={options} tab={tab} setTab={setTab} />
-				<div className="min-h-0 flex-1">{selected && <TranscriptView job={selected} query={query} options={options} tab={tab} />}</div>
+				<div className="min-h-0 flex-1">{shown && <TranscriptView job={shown} query={query} options={options} tab={tab} readOnly={showTranslation} />}</div>
 			</div>
 		</motion.div>
 	)
