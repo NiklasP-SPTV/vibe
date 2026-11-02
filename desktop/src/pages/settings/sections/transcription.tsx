@@ -6,6 +6,7 @@ import { m } from '~/paraglide/messages.js'
 import { describeAutoExport } from './auto-export'
 import LanguageInput from '~/components/language-input'
 import { Button } from '~/components/ui/button'
+import { NativeSelect } from '~/components/ui/native-select'
 import { Switch } from '~/components/ui/switch'
 import { deleteAllTranscripts, listTranscripts, notifyTranscriptsChanged, TRANSCRIPTS_CHANGED_EVENT } from '~/lib/transcripts-store'
 import { ActionRow, SettingsGroup, SettingsRow, type SettingsViewModel } from './shared'
@@ -89,6 +90,24 @@ export function TranscriptionSection({ vm, onOpenAutoExport }: { vm: SettingsVie
 						checked={vm.preference.sourceTimecode.wrapAt24Hours}
 						onCheckedChange={(wrapAt24Hours) => vm.preference.setSourceTimecode((current) => ({ ...current, wrapAt24Hours }))}
 					/>
+				</SettingsRow>
+				<SettingsRow
+					label="Video mit eingebranntem Timecode erstellen"
+					description="Rendert bei Videodateien parallel zur Transkription eine MP4 mit Timecode im Bild (weiße Schrift auf schwarzer Box) und Start-Timecode in den Metadaten."
+				>
+					<Switch
+						checked={vm.preference.sourceTimecode.burnIn}
+						onCheckedChange={(burnIn) => vm.preference.setSourceTimecode((current) => ({ ...current, burnIn }))}
+					/>
+				</SettingsRow>
+				<SettingsRow label="Position des Timecodes im Bild">
+					<NativeSelect
+						value={vm.preference.sourceTimecode.burnInPosition}
+						onChange={(event) => vm.preference.setSourceTimecode((current) => ({ ...current, burnInPosition: event.target.value === 'right' ? 'right' : 'center' }))}
+					>
+						<option value="center">Unten mittig</option>
+						<option value="right">Unten rechts</option>
+					</NativeSelect>
 				</SettingsRow>
 				<SettingsRow label={m.playSoundOnFinish()}>
 					<Switch checked={vm.preference.soundOnFinish} onCheckedChange={vm.preference.setSoundOnFinish} />

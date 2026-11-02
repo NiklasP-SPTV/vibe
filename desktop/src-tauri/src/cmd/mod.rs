@@ -1,6 +1,7 @@
 use serde::Serialize;
 pub mod app;
 pub mod audio;
+pub mod burn_in;
 pub mod config;
 pub mod download;
 pub mod files;

@@ -60,7 +60,7 @@ export async function collectLogs() {
 				try {
 					const parsed = JSON.parse(line) // Deserialize JSON
 					return parsed?.fields?.message || 'No message found' // Extract .message or fallback
-				} catch (e) {
+				} catch {
 					return 'Invalid JSON' // Handle invalid JSON
 				}
 			})

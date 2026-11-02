@@ -170,7 +170,7 @@ export function sourceTimecodeMilliseconds(centiseconds: number, source: SourceT
 }
 
 export function formatSourceMilliseconds(centiseconds: number, source: SourceTimecode, separator: ',' | '.', wrapAt24Hours = true) {
-	let milliseconds = sourceTimecodeMilliseconds(centiseconds, source, wrapAt24Hours)
+	const milliseconds = sourceTimecodeMilliseconds(centiseconds, source, wrapAt24Hours)
 	const ms = milliseconds % 1000
 	let seconds = Math.floor(milliseconds / 1000)
 	const s = seconds % 60

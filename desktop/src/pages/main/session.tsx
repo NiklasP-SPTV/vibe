@@ -22,6 +22,7 @@ import { usePreferenceProvider, type Preference } from '~/providers/preference'
 import { useAudioDownload } from '~/pages/home/hooks/use-audio-download'
 import { useRecording } from '~/pages/home/hooks/use-recording'
 import { useDropTarget } from './hooks/use-drop-target'
+import { useAutoBurnIn } from './hooks/use-auto-burn-in'
 import { useSummaries, type Summaries } from './hooks/use-summaries'
 import { useTranscribeQueue, type TranscribeQueue } from './hooks/use-transcribe-queue'
 
@@ -74,6 +75,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	const { setState: setErrorModal } = useContext(ErrorModalContext)
 	const queue = useTranscribeQueue()
 	const summaries = useSummaries(queue)
+	useAutoBurnIn(queue.jobs)
 	const [panel, setPanel] = useState<IdlePanel>('none')
 	const [collectingFolder, setCollectingFolder] = useState(false)
 	const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])

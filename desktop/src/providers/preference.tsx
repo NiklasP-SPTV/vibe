@@ -16,7 +16,7 @@ import { readConfig } from '~/lib/config-store'
 import { message } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import type { ModelMetadata } from '~/lib/model'
-import { DEFAULT_SOURCE_TIMECODE_SETTINGS, type SourceTimecodeSettings } from '~/lib/source-timecode'
+import { completeSourceTimecodeSettings, DEFAULT_SOURCE_TIMECODE_SETTINGS, type SourceTimecodeSettings } from '~/lib/source-timecode'
 
 /** Which build of the engine's CPU backend to run; `auto` lets CPUID decide. */
 export type CpuVariant = 'auto' | 'avx2' | 'baseline'
@@ -259,20 +259,14 @@ export function PreferenceProvider({ children }: { children: ReactNode }) {
 	const [storedExportOptions, setStoredExportOptions] = usePersisted<Partial<ExportOptions>>(CONFIG_KEYS.exportOptions, DEFAULT_EXPORT_OPTIONS)
 	const [storedSourceTimecode, setStoredSourceTimecode] = usePersisted<Partial<SourceTimecodeSettings>>(CONFIG_KEYS.sourceTimecode, DEFAULT_SOURCE_TIMECODE_SETTINGS)
 	const sourceTimecode = useMemo<SourceTimecodeSettings>(
-		// Older builds stored manual fallback fields here; only the two switches are read now.
-		() => ({
-			enabled: storedSourceTimecode?.enabled ?? DEFAULT_SOURCE_TIMECODE_SETTINGS.enabled,
-			wrapAt24Hours: storedSourceTimecode?.wrapAt24Hours ?? DEFAULT_SOURCE_TIMECODE_SETTINGS.wrapAt24Hours,
-		}),
+		// Older builds stored manual fallback fields here; only the known switches are read now.
+		() => completeSourceTimecodeSettings(storedSourceTimecode),
 		[storedSourceTimecode],
 	)
 	const setSourceTimecode: ModifyState<SourceTimecodeSettings> = useCallback(
 		(value) => {
 			setStoredSourceTimecode((previous) => {
-				const current = {
-					enabled: previous?.enabled ?? DEFAULT_SOURCE_TIMECODE_SETTINGS.enabled,
-					wrapAt24Hours: previous?.wrapAt24Hours ?? DEFAULT_SOURCE_TIMECODE_SETTINGS.wrapAt24Hours,
-				}
+				const current = completeSourceTimecodeSettings(previous)
 				return typeof value === 'function' ? (value as (state: SourceTimecodeSettings) => SourceTimecodeSettings)(current) : value
 			})
 		},

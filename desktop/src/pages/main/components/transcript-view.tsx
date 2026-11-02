@@ -15,6 +15,7 @@ import { useSession } from '../session'
 import type { Job } from '../hooks/use-transcribe-queue'
 import { textSizeClass, type TranscriptTab, type TranscriptViewOptions } from '../hooks/use-transcript-view'
 import { PLAYER_SEEK_EVENT, PLAYER_TOGGLE_EVENT, PLAYER_TIME_EVENT, type PlayerTimeDetail } from './player-bar'
+import { BurnInPanel } from './burn-in-panel'
 import { ProjectNameEditor } from './project-name-editor'
 import QuietRow from './quiet-row'
 import { SpeakerLabel } from './speaker-label'
@@ -647,6 +648,7 @@ export default function TranscriptView({
 									{job.sourceTimecode && <Button variant="ghost" size="sm" className="h-8 rounded-lg px-2 text-xs" onClick={() => queue.setJobSourceTimecode(job.id, undefined)}>Datei-Timecode verwenden</Button>}
 								</div>
 							)}
+							<BurnInPanel job={job} timecode={sourceClock.timecode} />
 						</div>
 					)}
 

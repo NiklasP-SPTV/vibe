@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { useEffect, useState } from 'react'
+import type { BurnInPosition } from './burn-in'
 import {
 	detectedSourceTimecode,
 	formatFrameRateInput,
@@ -16,9 +17,22 @@ import {
 export interface SourceTimecodeSettings {
 	enabled: boolean
 	wrapAt24Hours: boolean
+	/** Render a video copy with the timecode burned in while transcribing. */
+	burnIn: boolean
+	burnInPosition: BurnInPosition
 }
 
-export const DEFAULT_SOURCE_TIMECODE_SETTINGS: SourceTimecodeSettings = { enabled: true, wrapAt24Hours: true }
+export const DEFAULT_SOURCE_TIMECODE_SETTINGS: SourceTimecodeSettings = { enabled: true, wrapAt24Hours: true, burnIn: true, burnInPosition: 'center' }
+
+/** Fill fields an older build or a hand-edited config left out. */
+export function completeSourceTimecodeSettings(stored: Partial<SourceTimecodeSettings> | undefined): SourceTimecodeSettings {
+	return {
+		enabled: stored?.enabled ?? DEFAULT_SOURCE_TIMECODE_SETTINGS.enabled,
+		wrapAt24Hours: stored?.wrapAt24Hours ?? DEFAULT_SOURCE_TIMECODE_SETTINGS.wrapAt24Hours,
+		burnIn: stored?.burnIn ?? DEFAULT_SOURCE_TIMECODE_SETTINGS.burnIn,
+		burnInPosition: stored?.burnInPosition === 'right' ? 'right' : DEFAULT_SOURCE_TIMECODE_SETTINGS.burnInPosition,
+	}
+}
 
 const probeCache = new Map<string, ProbeResult | undefined>()
 const pending = new Map<string, Promise<ProbeResult | undefined>>()
