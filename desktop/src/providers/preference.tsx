@@ -173,6 +173,8 @@ export interface ModelOptions {
 const systemIsDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
 const defaultDisplayLanguage = 'en-US'
 
+export const DEFAULT_MAX_TEXT_CTX = 64
+
 export const DEFAULT_MODEL_OPTIONS: ModelOptions = {
 	init_prompt: '',
 	verbose: false,
@@ -180,7 +182,9 @@ export const DEFAULT_MODEL_OPTIONS: ModelOptions = {
 	lang: 'de',
 	n_threads: 4,
 	temperature: 0.4,
-	max_text_ctx: undefined,
+	// A short context keeps Whisper from carrying a hallucination ("Untertitelung des ZDF", endless
+	// "* Musik *") through the rest of a long file; whisper.cpp's own default is 16384 tokens.
+	max_text_ctx: DEFAULT_MAX_TEXT_CTX,
 	word_timestamps: false,
 	max_sentence_len: undefined,
 	sampling_strategy: 'beam search' as 'greedy' | 'beam search',
@@ -224,7 +228,12 @@ export function PreferenceProvider({ children }: { children: ReactNode }) {
 
 	const [soundOnFinish, setSoundOnFinish] = usePersisted(CONFIG_KEYS.soundOnFinish, defaultOptions.soundOnFinish)
 	const [focusOnFinish, setFocusOnFinish] = usePersisted(CONFIG_KEYS.focusOnFinish, defaultOptions.focusOnFinish)
-	const [modelOptions, setModelOptions] = usePersisted<ModelOptions>(CONFIG_KEYS.modelOptions, defaultOptions.modelOptions)
+	const [storedModelOptions, setModelOptions] = usePersisted<ModelOptions>(CONFIG_KEYS.modelOptions, defaultOptions.modelOptions)
+	// Configs saved before the context default existed have no value; they get the default too.
+	const modelOptions = useMemo<ModelOptions>(
+		() => ({ ...storedModelOptions, max_text_ctx: storedModelOptions.max_text_ctx ?? DEFAULT_MAX_TEXT_CTX }),
+		[storedModelOptions],
+	)
 	const [ffmpegOptions, setFfmpegOptions] = usePersisted<FfmpegOptions>(CONFIG_KEYS.ffmpegOptions, defaultOptions.ffmpegOptions)
 	const [projectsPath, setProjectsPath] = usePersisted<string | null>(CONFIG_KEYS.projectsPath, null)
 	const [autoExport, setAutoExport] = usePersisted<AutoExportSettings>(CONFIG_KEYS.autoExport, DEFAULT_AUTO_EXPORT)

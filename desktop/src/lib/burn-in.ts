@@ -10,7 +10,7 @@ import type { SourceTimecode } from './timecode'
 /** Where the timecode box sits on the bottom edge of the picture. */
 export type BurnInPosition = 'center' | 'right'
 
-export type BurnInStatus = 'running' | 'done' | 'saved' | 'error'
+export type BurnInStatus = 'running' | 'done' | 'error'
 
 /** A video copy with the running timecode burned in, rendered per transcript job. */
 export interface BurnInJob {
@@ -22,9 +22,9 @@ export interface BurnInJob {
 	status: BurnInStatus
 	/** 0..100 while running. */
 	progress: number
-	/** Temp file holding the finished render, until it is saved. */
+	/** Temp file holding the finished render; it stays until a re-render or the temp cleanup. */
 	output?: string
-	/** Where the user saved it. */
+	/** Where the user saved it last; saving again is always possible. */
 	savedTo?: string
 	error?: string
 }
@@ -132,7 +132,7 @@ export async function saveBurnIn(jobId: string, projectName: string): Promise<st
 	})
 	if (!target) return null
 	await invoke('save_burn_in', { source: job.output, target })
-	commit({ ...job, status: 'saved', output: undefined, savedTo: target })
+	commit({ ...job, savedTo: target })
 	return target
 }
 

@@ -91,7 +91,8 @@ pub fn cancel_burn_in(id: String) {
     }
 }
 
-/// Move a finished render to the location the user picked (copy when crossing drives).
+/// Copy a finished render to the location the user picked. The render itself stays in the temp
+/// folder, so it can be saved again (another place, another name) until it is discarded.
 #[tauri::command]
 pub async fn save_burn_in(source: String, target: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
@@ -100,11 +101,7 @@ pub async fn save_burn_in(source: String, target: String) -> Result<(), String> 
         if source == target {
             return Ok(());
         }
-        if std::fs::rename(&source, &target).is_ok() {
-            return Ok(());
-        }
         std::fs::copy(&source, &target).map_err(|error| format!("Video konnte nicht gespeichert werden: {error}"))?;
-        let _ = std::fs::remove_file(&source);
         Ok(())
     })
     .await

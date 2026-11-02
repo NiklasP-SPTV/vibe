@@ -7,7 +7,7 @@ import { Textarea } from '~/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { ActionRow, SettingsField, SettingsGroup, SettingsNote, SettingsRow, rowControlClass, type SettingsViewModel } from './shared'
 
-import { DEFAULT_MODEL_OPTIONS } from '~/providers/preference'
+import { DEFAULT_MAX_TEXT_CTX, DEFAULT_MODEL_OPTIONS } from '~/providers/preference'
 
 const textareaClass = 'min-h-24 max-h-60 w-full resize-none overflow-y-auto rounded-lg bg-muted/40 text-sm'
 
@@ -116,7 +116,7 @@ export function WhisperOptionsSection({ vm }: { vm: SettingsViewModel }) {
 				<SettingsRow label={m.maxTextCtx()} description={m.infoMaxTextCtx()}>
 					<NumberField
 						aria-label={m.maxTextCtx()}
-						value={vm.preference.modelOptions.max_text_ctx ?? 0}
+						value={vm.preference.modelOptions.max_text_ctx ?? DEFAULT_MAX_TEXT_CTX}
 						min={0}
 						max={16384}
 						step={64}

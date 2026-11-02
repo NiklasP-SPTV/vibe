@@ -74,22 +74,16 @@ export function BurnInPanel({ job, timecode }: { job: Job; timecode?: SourceTime
 
 	return (
 		<div className={row}>
-			{render.status === 'done' ? (
-				<Button size="sm" className={button} onClick={() => void save()}>
-					<Clapperboard className="size-3.5" /> Video mit TC speichern …
+			<Button size="sm" className={button} onClick={() => void save()}>
+				<Clapperboard className="size-3.5" /> Video mit TC speichern …
+			</Button>
+			{render.savedTo && (
+				<Button variant="ghost" size="sm" className={button} onClick={() => void openPath({ name: '', path: render.savedTo! })}>
+					<FolderOpen className="size-3.5" /> Zuletzt gespeichert – im Ordner zeigen
 				</Button>
-			) : (
-				<>
-					<span>Video gespeichert</span>
-					{render.savedTo && (
-						<Button variant="ghost" size="sm" className={button} onClick={() => void openPath({ name: '', path: render.savedTo! })}>
-							<FolderOpen className="size-3.5" /> Im Ordner zeigen
-						</Button>
-					)}
-				</>
 			)}
 			{outdated && <span>Timecode oder Layout wurde geändert.</span>}
-			{timecode && (outdated || render.status === 'saved') && (
+			{timecode && outdated && (
 				<Button variant="ghost" size="sm" className={button} onClick={start}>
 					<RotateCcw className="size-3.5" /> Neu erstellen
 				</Button>
