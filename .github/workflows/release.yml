@@ -113,7 +113,7 @@ jobs:
               with:
                   tagName: v__VERSION__ # the action automatically replaces __VERSION__ with the app version.
                   releaseName: "v__VERSION__"
-                  releaseBody: "Release notes: https://thewh1teagle.github.io/vibe/changelog/__VERSION__\n\nSigned and notarized on macOS and Windows."
+                  releaseBody: "Release notes: https://github.com/NiklasP-SPTV/vibe/blob/main/i18n/changelog/__VERSION__.md\n\nUnsigned build."
                   prerelease: true
                   args: ${{ matrix.args }} ${{ matrix.platform == 'windows-latest' && inputs.sign-windows && '--config src-tauri/tauri.windows.signing.conf.json' || '' }}
                   projectPath: "./desktop"
