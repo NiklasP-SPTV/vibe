@@ -176,7 +176,8 @@ const defaultDisplayLanguage = 'en-US'
 export const DEFAULT_MODEL_OPTIONS: ModelOptions = {
 	init_prompt: '',
 	verbose: false,
-	lang: 'en',
+	// This fork is used for German productions; the language stays selectable per run.
+	lang: 'de',
 	n_threads: 4,
 	temperature: 0.4,
 	max_text_ctx: undefined,
@@ -360,9 +361,13 @@ export function PreferenceProvider({ children }: { children: ReactNode }) {
 		}
 	}, [theme])
 
-	function setLanguageDefaults() {
+	function setLanguageDefaults(followDisplayLanguage = true) {
 		if (supportedLanguages[preference.displayLanguage]) {
-			preference.setModelOptions({ ...preference.modelOptions, lang: preference.displayLanguage.split('-')[0].toLowerCase() })
+			// Only an explicit change of the interface language moves the transcription language along;
+			// the first run keeps the German default instead of the English interface default.
+			if (followDisplayLanguage) {
+				preference.setModelOptions({ ...preference.modelOptions, lang: preference.displayLanguage.split('-')[0].toLowerCase() })
+			}
 			preference.setTextAreaDirection(getTextDirection())
 		}
 	}
@@ -371,9 +376,10 @@ export function PreferenceProvider({ children }: { children: ReactNode }) {
 			isMounted.current = true
 			return
 		}
-		if (previousLanguage.current !== getLocale() || isFirstRun) {
+		const localeChanged = previousLanguage.current !== getLocale()
+		if (localeChanged || isFirstRun) {
 			previousLanguage.current = getLocale()
-			setLanguageDefaults()
+			setLanguageDefaults(localeChanged)
 		}
 	}, [language, isFirstRun])
 

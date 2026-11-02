@@ -7,7 +7,7 @@ import { getLocale, getTextDirection } from '~/paraglide/runtime.js'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { formatTimestamp, type Segment, type SpeakerNames } from '~/lib/transcript'
-import { formatSourceTimecode, type SourceTimecode } from '~/lib/timecode'
+import { formatFrameRateInput, formatSourceTimecode, type SourceTimecode } from '~/lib/timecode'
 import { describeSourceTimecode, useSourceTimecode } from '~/lib/source-timecode'
 import { cn } from '~/lib/style'
 import { usePreferenceProvider } from '~/providers/preference'
@@ -390,6 +390,8 @@ export default function TranscriptView({
 	const preference = usePreferenceProvider()
 	const interfaceDirection = getTextDirection(getLocale())
 	const sourceClock = useSourceTimecode(job.path, job.sourceTimecode, preference.sourceTimecode)
+	// The file's own frame rate prefills the fps field until the user types another one.
+	const probedFps = formatFrameRateInput(sourceClock.probe?.frameRate)
 	const { queue } = useSession()
 	const scrollRef = useRef<HTMLDivElement>(null)
 	const listRef = useRef<HTMLDivElement>(null)
@@ -643,8 +645,8 @@ export default function TranscriptView({
 							{job.status !== 'running' && (
 								<div className="flex flex-wrap items-center gap-2" aria-label="Start-Timecode bearbeiten">
 									<span className="text-[11px] text-muted-foreground">Start-Timecode</span>
-									<Input aria-label="Start-Timecode" className="h-8 w-36 rounded-lg font-mono text-xs" placeholder="HH:MM:SS:FF" value={job.sourceTimecode?.timecode ?? ''} onChange={(event) => queue.setJobSourceTimecode(job.id, { timecode: event.target.value, fps: job.sourceTimecode?.fps ?? '' })} />
-									<Input aria-label="Framerate" className="h-8 w-24 rounded-lg font-mono text-xs" placeholder="fps" value={job.sourceTimecode?.fps ?? ''} onChange={(event) => queue.setJobSourceTimecode(job.id, { timecode: job.sourceTimecode?.timecode ?? '', fps: event.target.value })} />
+									<Input aria-label="Start-Timecode" className="h-8 w-36 rounded-lg font-mono text-xs" placeholder="HH:MM:SS:FF" value={job.sourceTimecode?.timecode ?? ''} onChange={(event) => queue.setJobSourceTimecode(job.id, { timecode: event.target.value, fps: job.sourceTimecode?.fps ?? probedFps })} />
+									<Input aria-label="Framerate" className="h-8 w-24 rounded-lg font-mono text-xs" placeholder="fps" value={job.sourceTimecode?.fps ?? probedFps} onChange={(event) => queue.setJobSourceTimecode(job.id, { timecode: job.sourceTimecode?.timecode ?? '', fps: event.target.value })} />
 									{job.sourceTimecode && <Button variant="ghost" size="sm" className="h-8 rounded-lg px-2 text-xs" onClick={() => queue.setJobSourceTimecode(job.id, undefined)}>Datei-Timecode verwenden</Button>}
 								</div>
 							)}
