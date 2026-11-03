@@ -70,6 +70,26 @@ pub fn resolve_ffmpeg_path(app_handle: &tauri::AppHandle) -> Option<PathBuf> {
     None
 }
 
+/// The discrete GPU to use when the user left the choice on "Auto", looked up once per launch:
+/// listing devices starts the engine, and the hardware does not change while the app runs.
+fn automatic_gpu_device(app_handle: &tauri::AppHandle) -> Option<i32> {
+    static CHOICE: std::sync::OnceLock<Option<i32>> = std::sync::OnceLock::new();
+    *CHOICE.get_or_init(|| {
+        let devices = resolve_server_binary(app_handle).and_then(|binary| crate::server::list_gpu_devices(&binary));
+        match devices {
+            Ok(devices) => {
+                let choice = crate::server::preferred_gpu_device(&devices);
+                tracing::info!(?choice, count = devices.len(), "automatic GPU choice");
+                choice
+            }
+            Err(error) => {
+                tracing::warn!("could not list GPUs, leaving the choice to the engine: {error:#}");
+                None
+            }
+        }
+    })
+}
+
 #[tauri::command]
 pub async fn load_model(
     app_handle: tauri::AppHandle,
@@ -80,6 +100,10 @@ pub async fn load_model(
 ) -> Result<String> {
     // Absent means "use the GPU": the setting is opt-in, and older callers do not send it.
     let no_gpu = no_gpu.unwrap_or(false);
+    let gpu_device = match gpu_device {
+        None if !no_gpu => automatic_gpu_device(&app_handle),
+        chosen => chosen,
+    };
     let server_state: State<'_, Mutex<ServerState>> = app_handle.state();
     let mut state_guard = server_state.lock().await;
 

@@ -14,7 +14,7 @@ use tokio::io::AsyncRead;
 use tokio_util::codec::{FramedRead, LinesCodec};
 use tokio_util::io::{ReaderStream, StreamReader};
 
-pub use devices::list_gpu_devices;
+pub use devices::{list_gpu_devices, preferred_gpu_device};
 
 const MAX_EVENT_LINE_LENGTH: usize = 64 * 1024 * 1024;
 
