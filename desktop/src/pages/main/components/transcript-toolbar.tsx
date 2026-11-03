@@ -247,6 +247,7 @@ export default function TranscriptToolbar({
 		content: exportOptions.content,
 		showTimestamps: exportOptions.showTimestamps,
 		showSpeakers: exportOptions.showSpeakers,
+		paragraphs: exportOptions.paragraphs,
 		speakerNames: job?.speakerNames,
 		sourceTimecode: sourceClock.timecode,
 		wrapAt24Hours: preference.sourceTimecode.wrapAt24Hours,
@@ -418,6 +419,8 @@ export default function TranscriptToolbar({
 				onShowTimestampsChange={(showTimestamps) => updateExport({ showTimestamps })}
 				showSpeakers={exportOptions.showSpeakers}
 				onShowSpeakersChange={(showSpeakers) => updateExport({ showSpeakers })}
+				paragraphs={exportOptions.paragraphs}
+				onParagraphsChange={(paragraphs) => updateExport({ paragraphs })}
 				preview={exporter.preview}
 				timecodeNotice={timecodeNotice}
 				timecodeLoading={sourceClock.loading}

@@ -3,6 +3,7 @@ import * as pathApi from '@tauri-apps/api/path'
 import * as fs from '@tauri-apps/plugin-fs'
 import { formatExtensions, type TextFormat } from '~/components/format-select'
 import { toDocx } from '~/lib/docx'
+import { exportSegments } from '~/lib/paragraphs'
 import { transcriptToPdf } from '~/lib/pdf/transcript-pdf'
 import { projectExportFilename } from '~/lib/project-name'
 import type { Segment, SpeakerNames } from '~/lib/transcript'
@@ -66,6 +67,8 @@ export interface ExportRendering {
 	theme: 'light' | 'dark'
 	showTimestamps: boolean
 	showSpeakers: boolean
+	/** Join a speaker's consecutive lines into paragraphs in reading formats. */
+	paragraphs?: boolean
 	speakerLabel: string
 	labels: { transcript: string; summary: string }
 }
@@ -96,7 +99,8 @@ export function tauriExportIo(projectsPath: string | null): ExportIo {
 }
 
 /** The bytes or text one format produces; the same renderers the export dialog uses. */
-export async function renderExport(format: TextFormat, input: ExportInput, rendering: ExportRendering): Promise<string | Uint8Array> {
+export async function renderExport(format: TextFormat, exported: ExportInput, rendering: ExportRendering): Promise<string | Uint8Array> {
+	const input = { ...exported, segments: exportSegments(exported.segments, format, rendering.paragraphs ?? true) }
 	const options: TranscriptExportOptions = {
 		content: input.summary ? 'both' : 'transcript',
 		showTimestamps: rendering.showTimestamps,

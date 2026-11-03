@@ -11,6 +11,7 @@ import { Button } from '~/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Switch } from '~/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
+import { formatSupportsParagraphs } from '~/lib/paragraphs'
 import { cn } from '~/lib/style'
 import type { TranscriptExportContent } from '~/lib/transcript-export'
 
@@ -32,6 +33,8 @@ export interface TranscriptExportDialogProps {
 	onShowTimestampsChange: (show: boolean) => void
 	showSpeakers: boolean
 	onShowSpeakersChange: (show: boolean) => void
+	paragraphs: boolean
+	onParagraphsChange: (paragraphs: boolean) => void
 	preview: string
 	timecodeNotice?: string
 	timecodeLoading?: boolean
@@ -240,6 +243,8 @@ export default function TranscriptExportDialog({
 	onShowTimestampsChange,
 	showSpeakers,
 	onShowSpeakersChange,
+	paragraphs,
+	onParagraphsChange,
 	preview,
 	timecodeNotice,
 	timecodeLoading = false,
@@ -369,6 +374,13 @@ export default function TranscriptExportDialog({
 								<OptionRow label={m.showSpeakers()}>
 									<Switch aria-label={m.showSpeakers()} checked={showSpeakers} onCheckedChange={onShowSpeakersChange} />
 								</OptionRow>
+
+								{/* Subtitles need their short cues, so the choice only exists for reading formats. */}
+								{formatSupportsParagraphs(format) && (
+									<OptionRow label="Absätze statt Einzelzeilen">
+										<Switch aria-label="Absätze statt Einzelzeilen" checked={paragraphs} onCheckedChange={onParagraphsChange} />
+									</OptionRow>
+								)}
 							</div>
 						</section>
 					</div>

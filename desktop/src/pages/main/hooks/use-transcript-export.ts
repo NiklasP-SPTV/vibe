@@ -8,6 +8,7 @@ import { m } from '~/paraglide/messages.js'
 import { formatExtensions, type TextFormat } from '~/components/format-select'
 import { openPath } from '~/lib/app'
 import { toDocx } from '~/lib/docx'
+import { exportSegments } from '~/lib/paragraphs'
 import { projectExportFilename } from '~/lib/project-name'
 import { transcriptToPdf } from '~/lib/pdf/transcript-pdf'
 import { serializeTranscriptExport, type TranscriptExportContent, type TranscriptExportOptions } from '~/lib/transcript-export'
@@ -27,6 +28,8 @@ interface UseTranscriptExportOptions {
 	content: TranscriptExportContent
 	showTimestamps: boolean
 	showSpeakers: boolean
+	/** Join a speaker's consecutive lines into paragraphs in reading formats. */
+	paragraphs?: boolean
 	speakerNames?: SpeakerNames
 	sourceTimecode?: SourceTimecode
 	wrapAt24Hours?: boolean
@@ -35,17 +38,19 @@ interface UseTranscriptExportOptions {
 export function useTranscriptExport({
 	enabled = true,
 	direction,
-	segments,
+	segments: transcriptSegments,
 	summary,
 	file,
 	format,
 	content,
 	showTimestamps,
 	showSpeakers,
+	paragraphs = true,
 	speakerNames,
 	sourceTimecode,
 	wrapAt24Hours = true,
 }: UseTranscriptExportOptions) {
+	const segments = useMemo(() => exportSegments(transcriptSegments, format, paragraphs), [format, paragraphs, transcriptSegments])
 	const preference = usePreferenceProvider()
 	const speakerLabel = m.speakerPrefix()
 	const serializerOptions = useMemo<TranscriptExportOptions>(

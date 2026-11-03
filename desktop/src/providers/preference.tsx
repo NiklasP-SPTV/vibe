@@ -33,6 +33,8 @@ export interface ExportOptions {
 	theme: 'light' | 'dark'
 	showTimestamps: boolean
 	showSpeakers: boolean
+	/** Join consecutive lines of one speaker into paragraphs in reading formats (not subtitles). */
+	paragraphs: boolean
 }
 
 export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
@@ -41,6 +43,7 @@ export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
 	theme: 'light',
 	showTimestamps: false,
 	showSpeakers: true,
+	paragraphs: true,
 }
 
 export interface AdvancedTranscribeOptions {
@@ -168,6 +171,8 @@ export interface ModelOptions {
 	sampling_strategy: 'greedy' | 'beam search'
 	best_of?: number
 	beam_size?: number
+	/** Which revision of the fork's defaults the stored options already went through. */
+	defaults_revision?: number
 }
 
 const systemIsDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -175,13 +180,34 @@ const defaultDisplayLanguage = 'en-US'
 
 export const DEFAULT_MAX_TEXT_CTX = 64
 
+/** Bumped when a default changes that stored options should pick up once. */
+const MODEL_DEFAULTS_REVISION = 1
+const PREVIOUS_DEFAULT_TEMPERATURE = 0.4
+
+/**
+ * Options saved before a revision get the new defaults once: a missing context gets the short one,
+ * and the old default temperature (nobody chose 0.4 on purpose; it came with the install) becomes 0.
+ * The revision travels with the next save, so a value set afterwards is kept.
+ */
+export function withCurrentDefaults(stored: ModelOptions): ModelOptions {
+	const options = { ...stored, max_text_ctx: stored.max_text_ctx ?? DEFAULT_MAX_TEXT_CTX }
+	if ((stored.defaults_revision ?? 0) >= MODEL_DEFAULTS_REVISION) return options
+	return {
+		...options,
+		temperature: stored.temperature === PREVIOUS_DEFAULT_TEMPERATURE ? 0 : stored.temperature,
+		defaults_revision: MODEL_DEFAULTS_REVISION,
+	}
+}
+
 export const DEFAULT_MODEL_OPTIONS: ModelOptions = {
 	init_prompt: '',
 	verbose: false,
 	// This fork is used for German productions; the language stays selectable per run.
 	lang: 'de',
 	n_threads: 4,
-	temperature: 0.4,
+	// 0 decodes the most likely words first and only samples on the passes whisper retries when
+	// a window fails; starting at 0.4 samples from the start and drops or invents words.
+	temperature: 0,
 	// A short context keeps Whisper from carrying a hallucination ("Untertitelung des ZDF", endless
 	// "* Musik *") through the rest of a long file; whisper.cpp's own default is 16384 tokens.
 	max_text_ctx: DEFAULT_MAX_TEXT_CTX,
@@ -190,6 +216,7 @@ export const DEFAULT_MODEL_OPTIONS: ModelOptions = {
 	sampling_strategy: 'beam search' as 'greedy' | 'beam search',
 	best_of: 5,
 	beam_size: 5,
+	defaults_revision: MODEL_DEFAULTS_REVISION,
 }
 
 const defaultOptions = {
@@ -229,11 +256,7 @@ export function PreferenceProvider({ children }: { children: ReactNode }) {
 	const [soundOnFinish, setSoundOnFinish] = usePersisted(CONFIG_KEYS.soundOnFinish, defaultOptions.soundOnFinish)
 	const [focusOnFinish, setFocusOnFinish] = usePersisted(CONFIG_KEYS.focusOnFinish, defaultOptions.focusOnFinish)
 	const [storedModelOptions, setModelOptions] = usePersisted<ModelOptions>(CONFIG_KEYS.modelOptions, defaultOptions.modelOptions)
-	// Configs saved before the context default existed have no value; they get the default too.
-	const modelOptions = useMemo<ModelOptions>(
-		() => ({ ...storedModelOptions, max_text_ctx: storedModelOptions.max_text_ctx ?? DEFAULT_MAX_TEXT_CTX }),
-		[storedModelOptions],
-	)
+	const modelOptions = useMemo<ModelOptions>(() => withCurrentDefaults(storedModelOptions), [storedModelOptions])
 	const [ffmpegOptions, setFfmpegOptions] = usePersisted<FfmpegOptions>(CONFIG_KEYS.ffmpegOptions, defaultOptions.ffmpegOptions)
 	const [projectsPath, setProjectsPath] = usePersisted<string | null>(CONFIG_KEYS.projectsPath, null)
 	const [autoExport, setAutoExport] = usePersisted<AutoExportSettings>(CONFIG_KEYS.autoExport, DEFAULT_AUTO_EXPORT)

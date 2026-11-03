@@ -328,6 +328,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 					theme: current.exportOptions.theme,
 					showTimestamps: current.exportOptions.showTimestamps,
 					showSpeakers: current.exportOptions.showSpeakers,
+					paragraphs: current.exportOptions.paragraphs,
 					speakerLabel: m.speakerPrefix(),
 					labels: { transcript: m.exportTranscript(), summary: m.exportSummary() },
 				},
