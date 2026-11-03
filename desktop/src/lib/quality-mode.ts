@@ -8,9 +8,9 @@ import { usePersisted } from './config-store'
  *
  * - `standard` — the model chosen in settings (large-v3-turbo by default) with the user's options.
  *   Fast enough for an author to run on the way home.
- * - `max` — slower, for material that goes to an editor: the full large-v3 model, voice activity
- *   detection before Whisper (so silence and music cannot produce invented lines or make it skip
- *   speech), and a decoder setup chosen for accuracy rather than speed.
+ * - `max` — slower, for material that goes to an editor: the full large-v3 model, decoded in
+ *   windows cut at speech pauses by voice activity detection (so it cannot loop or drift, and
+ *   silence and music cannot produce invented lines), with a decoder setup chosen for accuracy.
  */
 export type QualityMode = 'standard' | 'max'
 
@@ -21,19 +21,20 @@ export const MAX_QUALITY_MODEL = {
 }
 
 /**
- * Off until the engine splits long speech into bounded windows. Measured on a 51-minute interview
- * against Trint, the engine as shipped (server v0.6.10) gives large-v3 no edge over turbo: its
- * voice activity detection keeps continuous speech as one window, and large-v3 then fell into a
- * repetition loop that cost 22 minutes of text. The mode returns with the engine changes.
+ * Needs the engine from server-v0.6.10-sptv.1 on, which cuts speech into windows of at most 29 s
+ * at pauses. Before, voice activity detection kept continuous speech as one window, and large-v3
+ * looped for 22 minutes on the 51-minute MiWuLa interview. With bounded windows it agreed best
+ * with Trint of all variants (88.5 %), wrote whole sentences and took 170 s instead of 113 s for
+ * turbo on an RTX 5080.
  */
-export const MAX_QUALITY_AVAILABLE = false
+export const MAX_QUALITY_AVAILABLE = true
 
 export const QUALITY_MODES: Array<{ value: QualityMode; label: string; description: string; available: boolean }> = [
-	{ value: 'standard', label: 'Standard', description: 'Schnell und vollständig – die empfohlene Einstellung.', available: true },
+	{ value: 'standard', label: 'Standard', description: 'Schnell – für Rohfassung und Überblick.', available: true },
 	{
 		value: 'max',
 		label: 'Maximale Qualität',
-		description: MAX_QUALITY_AVAILABLE ? 'Genauer und vollständiger, dauert etwa 3- bis 5-mal so lange.' : 'Folgt mit Version 3.6.',
+		description: MAX_QUALITY_AVAILABLE ? 'Ganze Sätze, genauere Timecodes, weniger Fehler – dauert etwa doppelt so lange.' : 'Folgt mit Version 3.6.',
 		available: MAX_QUALITY_AVAILABLE,
 	},
 ]
