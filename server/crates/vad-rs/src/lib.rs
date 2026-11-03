@@ -12,6 +12,9 @@ mod silero;
 
 pub const SAMPLE_RATE: usize = 16_000;
 
+/// Longest window the stable-timestamps path hands to Whisper.
+pub const STABLE_TIMESTAMPS_MAX_CHUNK_MS: u32 = 29_000;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
@@ -49,11 +52,15 @@ impl Default for Options {
 }
 
 impl Options {
-    /// Preserves whisper.cpp's historical stable-timestamp VAD parameters.
+    /// Windows for stable timestamps: speech cut at pauses into pieces that each fit one Whisper
+    /// window. An unbounded chunk used to coalesce every speech run of a recording into a single
+    /// window — the whole file for continuous speech such as an interview — so the option changed
+    /// nothing there, and timestamps drifted and the decoder could loop as without it.
     pub fn stable_timestamps() -> Self {
         Self {
-            max_chunk_ms: u32::MAX,
-            // whisper_vad_default_params().samples_overlap (0.1 s).
+            // Under Whisper's 30 s window, leaving room for the padding around each piece.
+            max_chunk_ms: STABLE_TIMESTAMPS_MAX_CHUNK_MS,
+            // whisper_vad_default_params().samples_overlap (0.1 s), for the rare hard cut.
             overlap_ms: 100,
             ..Self::default()
         }
@@ -334,6 +341,27 @@ fn coalesce_bounded(speech: &[SpeechSegment], sample_count: usize, options: Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stable_timestamps_windows_fit_one_whisper_window() {
+        // Ten minutes of speech in 5-second runs with short pauses, like an interview.
+        let speech: Vec<SpeechSegment> = (0..120)
+            .map(|index| SpeechSegment {
+                start_sample: index * 5 * SAMPLE_RATE,
+                end_sample: index * 5 * SAMPLE_RATE + 4 * SAMPLE_RATE,
+            })
+            .collect();
+        let total = 600 * SAMPLE_RATE;
+        let windows = coalesce_bounded(&speech, total, Options::stable_timestamps());
+        let max = STABLE_TIMESTAMPS_MAX_CHUNK_MS as usize * SAMPLE_RATE / 1000;
+        assert!(windows.len() > 1, "continuous speech must not collapse into one window");
+        assert!(windows.iter().all(|window| window.end_sample - window.start_sample <= max));
+        // Cut at the pauses, not inside speech: every window starts where a speech run starts.
+        assert!(windows
+            .iter()
+            .all(|window| speech.iter().any(|run| run.start_sample == window.start_sample)));
+        assert_eq!(windows.last().unwrap().end_sample, speech.last().unwrap().end_sample);
+    }
 
     #[test]
     fn hard_splits_with_overlap() {
