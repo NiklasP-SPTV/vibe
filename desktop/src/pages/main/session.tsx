@@ -24,9 +24,8 @@ import { useRecording } from '~/pages/home/hooks/use-recording'
 import { useDropTarget } from './hooks/use-drop-target'
 import { useAutoBurnIn } from './hooks/use-auto-burn-in'
 import { useAutoTranslate } from './hooks/use-auto-translate'
-import type { TranslationRequest } from '~/lib/translation'
 import { useSummaries, type Summaries } from './hooks/use-summaries'
-import { useTranscribeQueue, type TranscribeQueue } from './hooks/use-transcribe-queue'
+import { useTranscribeQueue, type EnqueueItem, type TranscribeQueue } from './hooks/use-transcribe-queue'
 
 export type SessionMode = 'idle' | 'working' | 'done'
 export type IdlePanel = 'none' | 'record' | 'link'
@@ -38,13 +37,16 @@ export interface PendingFile extends NamedPath {
 	sourceTimecode: TimecodeInput
 }
 
+/** What the start dialog decided for every file of the run. */
+export type RunChoice = Pick<EnqueueItem, 'translation' | 'quality' | 'burnIn'>
+
 export interface Session {
 	mode: SessionMode
 	pendingFiles: PendingFile[]
 	pendingLoading: boolean
 	updatePendingTimecode: (path: string, sourceTimecode: TimecodeInput) => void
-	/** Start the files from the start screen, optionally translating each finished transcript. */
-	startPendingTranscription: (translation?: TranslationRequest) => void
+	/** Start the files waiting in the start dialog with what was picked there. */
+	startPendingTranscription: (choice: RunChoice) => void
 	cancelPendingFiles: () => void
 	queue: TranscribeQueue
 	/** AI summaries of finished transcripts (settings → Summarize). */
@@ -124,32 +126,36 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 				}
 			}
 			if (!files.length) return
-			// On a fresh start, offer per-file timecode review before the queue begins. Files added
-			// during an existing session retain the established append-to-queue behaviour.
-			if (queue.jobs.length === 0 && !queue.running) {
-				setPendingLoading(true)
-				setPendingFiles([])
-				const prepared = await Promise.all(files.map(async (file) => {
-					const probe = await probeSourceTimecode(file.path)
-					return { ...file, sourceTimecode: prefillFromProbe(probe, '') }
-				}))
-				setPendingFiles(prepared)
+			// Every new file goes through the start dialog first — also when it joins a running
+			// session — so timecode, quality and burn-in are never skipped by accident.
+			setPendingLoading(true)
+			try {
+				const prepared = await Promise.all(
+					files.map(async (file) => {
+						const probe = await probeSourceTimecode(file.path)
+						return { ...file, sourceTimecode: prefillFromProbe(probe, '') }
+					}),
+				)
+				// Dropping more files while the dialog is open adds them to it.
+				setPendingFiles((previous) => [...previous, ...prepared.filter((file) => !previous.some((other) => other.path === file.path))])
+			} finally {
 				setPendingLoading(false)
-				return
 			}
-			queue.enqueue(files)
 		},
-		[preference.advancedTranscribeOptions.includeSubFolders, queue.jobs.length, queue.running, queue.enqueue],
+		[preference.advancedTranscribeOptions.includeSubFolders],
 	)
 
 	const updatePendingTimecode = useCallback((path: string, sourceTimecode: TimecodeInput) => {
 		setPendingFiles((files) => files.map((file) => file.path === path ? { ...file, sourceTimecode } : file))
 	}, [])
-	const startPendingTranscription = useCallback((translation?: TranslationRequest) => {
-		if (!pendingFiles.length || pendingLoading) return
-		queue.enqueue(pendingFiles.map((file) => ({ ...file, translation })))
-		setPendingFiles([])
-	}, [pendingFiles, pendingLoading, queue.enqueue])
+	const startPendingTranscription = useCallback(
+		(choice: RunChoice) => {
+			if (!pendingFiles.length || pendingLoading) return
+			queue.enqueue(pendingFiles.map((file) => ({ ...file, ...choice })))
+			setPendingFiles([])
+		},
+		[pendingFiles, pendingLoading, queue.enqueue],
+	)
 	const cancelPendingFiles = useCallback(() => setPendingFiles([]), [])
 
 

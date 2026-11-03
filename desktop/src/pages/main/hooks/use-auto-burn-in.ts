@@ -13,13 +13,15 @@ export function useAutoBurnIn(jobs: Job[]) {
 	const started = useRef(new Set<string>())
 
 	useEffect(() => {
-		if (!settings.enabled || !settings.burnIn) return
+		if (!settings.enabled) return
 		for (const job of jobs) {
 			if (job.status !== 'running' || started.current.has(job.id)) continue
 			started.current.add(job.id)
-			if (!isVideoPath(job.path)) continue
+			// The start dialog decides per run; jobs queued some other way follow the settings.
+			const choice = job.burnIn ?? { enabled: settings.burnIn, position: settings.burnInPosition }
+			if (!choice.enabled || !isVideoPath(job.path)) continue
 			void getSourceTimecode(job.path, job.sourceTimecode, settings).then((timecode) => {
-				if (timecode) void startBurnIn(job.id, job.path, timecode, { wrapAt24Hours: settings.wrapAt24Hours, position: settings.burnInPosition })
+				if (timecode) void startBurnIn(job.id, job.path, timecode, { wrapAt24Hours: settings.wrapAt24Hours, position: choice.position })
 			})
 		}
 	}, [jobs, settings])

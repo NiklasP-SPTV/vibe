@@ -10,12 +10,9 @@ import { Input } from '~/components/ui/input'
 import { Spinner } from '~/components/ui/spinner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
 import { cn } from '~/lib/style'
-import { parseTimecodeInput } from '~/lib/timecode'
-import { useTranslationSettings } from '~/lib/translation'
 import { parseMediaLinks } from '~/lib/ytdlp'
 import { useSession, type IdlePanel } from '../session'
 import QuietRow from './quiet-row'
-import { TranslationOptions, type TranslationChoice } from './translation-options'
 
 function formatElapsed(seconds: number) {
 	const minutes = Math.floor(seconds / 60)
@@ -322,21 +319,8 @@ function LinkPanel() {
 }
 
 export default function IdleHero() {
-	const { dragging, browse, collectingFolder, panel, setPanel, link, recording, preference, pendingFiles, pendingLoading, updatePendingTimecode, startPendingTranscription, cancelPendingFiles } = useSession()
-
-	const pendingTimecodeErrors = new Map<string, string | undefined>(pendingFiles.map((file) => [file.path, parseTimecodeInput(file.sourceTimecode).error] as const))
-	const pendingInvalid = [...pendingTimecodeErrors.values()].some(Boolean)
-	const translation = useTranslationSettings()
-	const [translationChoice, setTranslationChoice] = useState<TranslationChoice>({ enabled: false, target: 'DE', source: '' })
-	const hasPending = pendingFiles.length > 0
-	// Every new batch of files starts from the defaults in settings.
-	useEffect(() => {
-		if (hasPending) setTranslationChoice({ enabled: translation.settings.translateByDefault, target: translation.settings.defaultTarget, source: '' })
-	}, [hasPending])
-	const translate = translation.configured && translationChoice.enabled
-	function startPending() {
-		startPendingTranscription(translate ? { target: translationChoice.target, source: translationChoice.source || undefined } : undefined)
-	}
+	// Files that come in wait in the start dialog (TranscribeSetupDialog); the hero only shows the drop zone.
+	const { dragging, browse, collectingFolder, panel, setPanel, link, recording, pendingLoading } = useSession()
 
 	function selectPanel(next: IdlePanel) {
 		if (recording.isRecording || next === panel) return
@@ -382,35 +366,13 @@ export default function IdleHero() {
 									{collectingFolder || pendingLoading ? <Spinner className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
 								</span>
 								<div className="space-y-1">
-									<h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">{pendingLoading ? 'Timecodes werden ausgelesen …' : m.dropFilesHere()}</h1>
-									<p className="text-[13px] text-muted-foreground">{pendingFiles.length ? 'Start-Timecode prüfen oder manuell überschreiben, dann transkribieren.' : m.orClickToBrowse()}</p>
+									<h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">{m.dropFilesHere()}</h1>
+									<p className="text-[13px] text-muted-foreground">{m.orClickToBrowse()}</p>
 								</div>
-								{!pendingFiles.length && !pendingLoading && <Button variant="outline" className="h-9 rounded-lg" onClick={() => void browse()}>{m.fromFile()}</Button>}
+								<Button variant="outline" className="h-9 rounded-lg" disabled={pendingLoading} onClick={() => void browse()}>
+									{m.fromFile()}
+								</Button>
 							</div>
-							{pendingFiles.length > 0 && (
-								<div className="relative mx-auto w-full max-w-2xl space-y-3 px-4 pb-4 text-start">
-									<div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-										{pendingFiles.map((file) => (
-											<div key={file.path} className="grid grid-cols-[minmax(0,1fr)_minmax(115px,170px)_minmax(76px,100px)] items-center gap-2 rounded-xl border border-border/70 bg-background/65 p-2.5">
-												<div className="min-w-0">
-													<p className="truncate text-sm font-medium" title={file.name}>{file.name}</p>
-													<p className="text-[11px] text-muted-foreground">HH:MM:SS:FF · ; für Drop-Frame</p>
-												</div>
-												<Input aria-label={`Start-Timecode ${file.name}`} className="h-9 rounded-lg font-mono text-xs" placeholder="09:20:14:08" value={file.sourceTimecode.timecode} onChange={(event) => updatePendingTimecode(file.path, { ...file.sourceTimecode, timecode: event.target.value })} />
-												<Input aria-label={`Framerate ${file.name}`} className="h-9 rounded-lg font-mono text-xs" placeholder="fps" value={file.sourceTimecode.fps} onChange={(event) => updatePendingTimecode(file.path, { ...file.sourceTimecode, fps: event.target.value })} />
-											{pendingTimecodeErrors.get(file.path) && <p className="col-span-full px-1 text-[11px] text-destructive">{pendingTimecodeErrors.get(file.path)}</p>}
-										</div>
-										))}
-									</div>
-									<TranslationOptions configured={translation.configured} choice={translationChoice} onChange={setTranslationChoice} />
-									<div className="flex justify-end gap-2">
-										<Button variant="ghost" className="h-9 rounded-lg" onClick={cancelPendingFiles}>Abbrechen</Button>
-										<Button className="h-9 rounded-lg" disabled={!preference.modelPath || pendingLoading || pendingInvalid} onClick={startPending}>
-											{translate ? 'Transkribieren & übersetzen' : m.transcribe()} · {pendingFiles.length}
-										</Button>
-									</div>
-								</div>
-							)}
 						</motion.div>
 					) : (
 						<motion.div

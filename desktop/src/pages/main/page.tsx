@@ -6,6 +6,7 @@ import IdleHero from './components/idle-hero'
 import PlayerBar from './components/player-bar'
 import RecentsSidebar from './components/recents-sidebar'
 import SessionView from './components/session-view'
+import TranscribeSetupDialog from './components/transcribe-setup-dialog'
 import { SessionProvider, useSession } from './session'
 
 /** Collapsed = hidden entirely; the state lives in localStorage so it survives a reload. */
@@ -62,6 +63,9 @@ function MainContent() {
 					</motion.div>
 				)}
 			</AnimatePresence>
+
+			{/* Every incoming file is set up here first, in the idle screen and in a running session. */}
+			<TranscribeSetupDialog />
 
 			{/* Dropping onto a running session appends to the queue — say so. */}
 			<AnimatePresence>

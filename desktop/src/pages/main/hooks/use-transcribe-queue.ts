@@ -37,6 +37,8 @@ import {
 import type { NamedPath, ProjectSource } from '~/lib/types'
 import { ErrorModalContext } from '~/providers/error-modal'
 import { withoutUnsupportedOptions } from '~/lib/model'
+import type { BurnInPosition } from '~/lib/burn-in'
+import { maxQualityModelOptions, modelPathFor, type QualityMode } from '~/lib/quality-mode'
 import { type Preference, usePreferenceProvider } from '~/providers/preference'
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled'
@@ -49,6 +51,15 @@ export interface EnqueueItem extends NamedPath {
 	projectName?: string
 	/** Translate the finished transcript with DeepL, as chosen in the start screen. */
 	translation?: TranslationRequest
+	/** Quality mode picked in the start dialog; absent means standard. */
+	quality?: QualityMode
+	/** Burned-in timecode video, as picked in the start dialog; absent means the settings decide. */
+	burnIn?: BurnInChoice
+}
+
+export interface BurnInChoice {
+	enabled: boolean
+	position: BurnInPosition
 }
 
 export interface Job {
@@ -80,6 +91,10 @@ export interface Job {
 	exported?: AutoExportResult
 	/** Translation asked for when the job was queued; run once the transcript is done. */
 	translationRequest?: TranslationRequest
+	/** Quality mode this job runs in; absent means standard. */
+	quality?: QualityMode
+	/** Whether and where to burn the timecode into a copy of the video; absent means the settings decide. */
+	burnIn?: BurnInChoice
 	/** DeepL translation of the segments, aligned by index. */
 	translation?: Translation
 }
@@ -163,22 +178,30 @@ function nextJobId() {
 }
 
 /** Options shared by every file of a run (diarize / vad model paths). */
-async function buildSharedOptions(preference: Preference) {
-	const requiresVad = preference.modelMetadata?.capabilities.requires_vad ?? false
-	const needsFolder = preference.diarizeEnabled || preference.stableTimestampsEnabled || requiresVad
-	const modelsFolder = needsFolder ? await invoke<string>('get_models_folder') : null
+async function buildSharedOptions(preference: Preference, quality: QualityMode = 'standard') {
+	const max = quality === 'max'
+	// The max mode runs Whisper; whatever the standard model needs does not apply to it.
+	const requiresVad = !max && (preference.modelMetadata?.capabilities.requires_vad ?? false)
+	const stable = max || preference.stableTimestampsEnabled
+	const modelsFolder = await invoke<string>('get_models_folder')
 	return {
 		...(preference.diarizeEnabled ? { diarize_model: `${modelsFolder}/${config.diarizeModelFilename}` } : {}),
-		...(preference.stableTimestampsEnabled || requiresVad ? { vad_model: `${modelsFolder}/${config.vadModelFilename}` } : {}),
-		...(preference.stableTimestampsEnabled ? { stable_timestamps: true } : {}),
+		...(stable || requiresVad ? { vad_model: `${modelsFolder}/${config.vadModelFilename}` } : {}),
+		...(stable ? { stable_timestamps: true } : {}),
 	}
 }
 
+/** The decoder options one job runs with: the user's for standard, the accuracy set for max. */
+function jobModelOptions(preference: Preference, quality: QualityMode = 'standard') {
+	if (quality === 'max') return maxQualityModelOptions(preference.modelOptions)
+	return withoutUnsupportedOptions(preference.modelOptions, preference.modelMetadata?.capabilities)
+}
+
 /** Reload the current model on the CPU. False when even that failed, so the original error stands. */
-async function reloadOnCpu(preference: Preference): Promise<boolean> {
+async function reloadOnCpu(preference: Preference, modelPath: string): Promise<boolean> {
 	try {
 		await invoke('load_model', {
-			modelPath: preference.modelPath,
+			modelPath,
 			gpuDevice: preference.gpuDevice,
 			noGpu: true,
 			unloadTimeoutMinutes: preference.unloadTimeoutMinutes,
@@ -402,36 +425,45 @@ export function useTranscribeQueue(): TranscribeQueue {
 
 		try {
 			const current = preferenceRef.current
-			if (!current.modelPath) {
-				failPending(m.noModelSelected())
-				toast.error(m.noModelSelected(), { position: 'bottom-center' })
-				return
-			}
-
+			const modelsFolder = await invoke<string>('get_models_folder')
+			// Jobs of one run may differ in quality mode; the model is only reloaded when it changes.
+			let loadedModelPath: string | null = null
 			// Once the GPU runs out of memory the rest of the run stays on the CPU, and so does
-			// this model on every later launch: a loaded model that fits can still overflow once
+			// that model on every later launch: a loaded model that fits can still overflow once
 			// the working buffers of a long file or diarization arrive.
-			let onCpu = current.noGpu || gpuOutOfMemoryBefore(current.modelPath)
-			let shared: Record<string, unknown>
-			try {
-				const loadResult = await invoke<string>('load_model', {
-					modelPath: current.modelPath,
-					gpuDevice: current.gpuDevice,
-					noGpu: onCpu,
-					unloadTimeoutMinutes: current.unloadTimeoutMinutes,
-				})
-				if (loadResult === 'gpu_fallback') toast.warning(m.gpuFallbackToCpu(), { position: 'bottom-center', duration: 8000 })
-				shared = await buildSharedOptions(current)
-			} catch (error) {
-				const { message } = errorParts(error)
-				failPending(message)
-				setErrorModal?.({ log: message, open: true })
-				return
-			}
+			let ranOutOfGpuMemory = false
+			let onCpu = current.noGpu
 
 			while (!abortAllRef.current) {
 				const next = jobsRef.current.find((job) => job.status === 'queued')
 				if (!next) break
+
+				const modelPath = modelPathFor(next.quality, preferenceRef.current.modelPath, modelsFolder)
+				if (!modelPath) {
+					failPending(m.noModelSelected())
+					toast.error(m.noModelSelected(), { position: 'bottom-center' })
+					break
+				}
+				let shared: Record<string, unknown>
+				try {
+					if (modelPath !== loadedModelPath) {
+						onCpu = current.noGpu || ranOutOfGpuMemory || gpuOutOfMemoryBefore(modelPath)
+						const loadResult = await invoke<string>('load_model', {
+							modelPath,
+							gpuDevice: current.gpuDevice,
+							noGpu: onCpu,
+							unloadTimeoutMinutes: current.unloadTimeoutMinutes,
+						})
+						if (loadResult === 'gpu_fallback') toast.warning(m.gpuFallbackToCpu(), { position: 'bottom-center', duration: 8000 })
+						loadedModelPath = modelPath
+					}
+					shared = await buildSharedOptions(preferenceRef.current, next.quality)
+				} catch (error) {
+					const { message } = errorParts(error)
+					failPending(message)
+					setErrorModal?.({ log: message, open: true })
+					break
+				}
 
 				activeIdRef.current = next.id
 				setActiveId(next.id)
@@ -445,7 +477,7 @@ export function useTranscribeQueue(): TranscribeQueue {
 					const result = await invoke<Transcript>('transcribe', {
 						options: {
 							path: next.path,
-							...withoutUnsupportedOptions(preferenceRef.current.modelOptions, preferenceRef.current.modelMetadata?.capabilities),
+							...jobModelOptions(preferenceRef.current, next.quality),
 							...shared,
 						},
 					})
@@ -478,9 +510,10 @@ export function useTranscribeQueue(): TranscribeQueue {
 						trackTranscribeCancelled('main', next.path)
 					} else {
 						const { code, message } = errorParts(error)
-						if (!onCpu && isGpuOutOfMemory(code, message) && (await reloadOnCpu(current))) {
+						if (!onCpu && isGpuOutOfMemory(code, message) && (await reloadOnCpu(current, modelPath))) {
 							onCpu = true
-							rememberGpuOutOfMemory(current.modelPath)
+							ranOutOfGpuMemory = true
+							rememberGpuOutOfMemory(modelPath)
 							trackGpuOutOfMemory('main', { signal: code === serverErrorCodes.GPU_OUT_OF_MEMORY ? 'error_code' : 'process_death' })
 							toast.warning(m.gpuFallbackToCpu(), { position: 'bottom-center', duration: 8000 })
 							// Back to the queue for one more try; on the CPU an overflow is the plain error.
@@ -606,6 +639,8 @@ export function useTranscribeQueue(): TranscribeQueue {
 				path: file.path,
 				sourceTimecode: file.sourceTimecode,
 				translationRequest: file.translation,
+				quality: file.quality,
+				burnIn: file.burnIn,
 				source: file.source ?? 'file',
 				status: 'queued',
 				progress: 0,

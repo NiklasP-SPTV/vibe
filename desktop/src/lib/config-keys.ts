@@ -57,6 +57,8 @@ export const CONFIG_KEYS = {
 	exportOptions: 'transcript.exportOptions',
 	sourceTimecode: 'transcription.sourceTimecode',
 	translation: 'transcription.translation',
+	/** The quality mode last picked in the start dialog. */
+	qualityMode: 'transcription.qualityMode',
 	textFormatTranscript: 'transcript.exportFormat',
 	textFormatSummary: 'transcript.summaryExportFormat',
 	transcriptTab: 'transcript.tab',

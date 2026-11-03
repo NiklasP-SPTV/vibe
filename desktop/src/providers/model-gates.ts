@@ -7,6 +7,7 @@ import { m } from '~/paraglide/messages.js'
 import * as config from '~/lib/config'
 import type { ModelIntegrity } from '~/lib/config'
 import { isModelFileUsable } from '~/lib/model'
+import { MAX_QUALITY_MODEL } from '~/lib/quality-mode'
 import { usePreferenceProvider } from '~/providers/preference'
 import { useToastProvider } from '~/providers/toast'
 
@@ -92,5 +93,45 @@ export function useModelGates() {
 		[ensureModel, preference],
 	)
 
-	return { toggleDiarization, toggleStableTimestamps }
+	/**
+	 * The max quality mode needs the full large-v3 model and the voice activity model. Both are
+	 * asked for in one question, since they only make sense together.
+	 */
+	const ensureMaxQuality = useCallback(async () => {
+		const modelsFolder = await invoke<string>('get_models_folder')
+		const needed = [
+			{ filename: MAX_QUALITY_MODEL.filename, url: MAX_QUALITY_MODEL.url, label: `Sprachmodell large-v3 (${MAX_QUALITY_MODEL.sizeLabel})` },
+			{ filename: config.vadModelFilename, url: config.vadModelUrl, label: 'Sprachfilter (VAD, wenige MB)' },
+		]
+		const missing = []
+		for (const model of needed) {
+			const path = await join(modelsFolder, model.filename)
+			if (!(await isModelFileUsable(path))) missing.push({ ...model, path })
+		}
+		if (missing.length === 0) return true
+
+		const list = missing.map((model) => `• ${model.label}`).join('\n')
+		const question = `Für „Maximale Qualität“ wird einmalig heruntergeladen:\n\n${list}\n\nJetzt herunterladen?`
+		if (!(await ask(question, { title: 'Maximale Qualität', kind: 'info' }))) return false
+
+		try {
+			for (const model of missing) {
+				progressToast.setMessage(`${model.label} wird heruntergeladen …`)
+				progressToast.setOpen(true)
+				progressToast.setProgress(0)
+				await invoke('download_model', { url: model.url, path: model.path })
+			}
+			toast.success(m.downloadComplete())
+			return true
+		} catch (error) {
+			console.error('max quality setup failed:', error)
+			toast.error(String(error))
+			return false
+		} finally {
+			progressToast.setOpen(false)
+			progressToast.setProgress(null)
+		}
+	}, [progressToast])
+
+	return { toggleDiarization, toggleStableTimestamps, ensureMaxQuality }
 }
