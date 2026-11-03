@@ -16,6 +16,7 @@ import { readConfig } from '~/lib/config-store'
 import { message } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import type { ModelMetadata } from '~/lib/model'
+import { DEFAULT_MAX_TEXT_CTX, MODEL_DEFAULTS_REVISION, withCurrentDefaults } from '~/lib/model-defaults'
 import { completeSourceTimecodeSettings, DEFAULT_SOURCE_TIMECODE_SETTINGS, type SourceTimecodeSettings } from '~/lib/source-timecode'
 
 /** Which build of the engine's CPU backend to run; `auto` lets CPUID decide. */
@@ -178,26 +179,7 @@ export interface ModelOptions {
 const systemIsDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
 const defaultDisplayLanguage = 'en-US'
 
-export const DEFAULT_MAX_TEXT_CTX = 64
-
-/** Bumped when a default changes that stored options should pick up once. */
-const MODEL_DEFAULTS_REVISION = 1
-const PREVIOUS_DEFAULT_TEMPERATURE = 0.4
-
-/**
- * Options saved before a revision get the new defaults once: a missing context gets the short one,
- * and the old default temperature (nobody chose 0.4 on purpose; it came with the install) becomes 0.
- * The revision travels with the next save, so a value set afterwards is kept.
- */
-export function withCurrentDefaults(stored: ModelOptions): ModelOptions {
-	const options = { ...stored, max_text_ctx: stored.max_text_ctx ?? DEFAULT_MAX_TEXT_CTX }
-	if ((stored.defaults_revision ?? 0) >= MODEL_DEFAULTS_REVISION) return options
-	return {
-		...options,
-		temperature: stored.temperature === PREVIOUS_DEFAULT_TEMPERATURE ? 0 : stored.temperature,
-		defaults_revision: MODEL_DEFAULTS_REVISION,
-	}
-}
+export { DEFAULT_MAX_TEXT_CTX, withCurrentDefaults } from '~/lib/model-defaults'
 
 export const DEFAULT_MODEL_OPTIONS: ModelOptions = {
 	init_prompt: '',
@@ -208,8 +190,6 @@ export const DEFAULT_MODEL_OPTIONS: ModelOptions = {
 	// 0 decodes the most likely words first and only samples on the passes whisper retries when
 	// a window fails; starting at 0.4 samples from the start and drops or invents words.
 	temperature: 0,
-	// A short context keeps Whisper from carrying a hallucination ("Untertitelung des ZDF", endless
-	// "* Musik *") through the rest of a long file; whisper.cpp's own default is 16384 tokens.
 	max_text_ctx: DEFAULT_MAX_TEXT_CTX,
 	word_timestamps: false,
 	max_sentence_len: undefined,

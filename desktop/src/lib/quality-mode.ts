@@ -1,4 +1,5 @@
 import type { ModelOptions } from '~/providers/preference'
+import { DEFAULT_MAX_TEXT_CTX } from './model-defaults'
 import { CONFIG_KEYS } from './config-keys'
 import { usePersisted } from './config-store'
 
@@ -19,9 +20,22 @@ export const MAX_QUALITY_MODEL = {
 	sizeLabel: '3,1 GB',
 }
 
-export const QUALITY_MODES: Array<{ value: QualityMode; label: string; description: string }> = [
-	{ value: 'standard', label: 'Standard', description: 'Schnell – für den Überblick und die Rohfassung.' },
-	{ value: 'max', label: 'Maximale Qualität', description: 'Genauer und vollständiger, dauert etwa 3- bis 5-mal so lange.' },
+/**
+ * Off until the engine splits long speech into bounded windows. Measured on a 51-minute interview
+ * against Trint, the engine as shipped (server v0.6.10) gives large-v3 no edge over turbo: its
+ * voice activity detection keeps continuous speech as one window, and large-v3 then fell into a
+ * repetition loop that cost 22 minutes of text. The mode returns with the engine changes.
+ */
+export const MAX_QUALITY_AVAILABLE = false
+
+export const QUALITY_MODES: Array<{ value: QualityMode; label: string; description: string; available: boolean }> = [
+	{ value: 'standard', label: 'Standard', description: 'Schnell und vollständig – die empfohlene Einstellung.', available: true },
+	{
+		value: 'max',
+		label: 'Maximale Qualität',
+		description: MAX_QUALITY_AVAILABLE ? 'Genauer und vollständiger, dauert etwa 3- bis 5-mal so lange.' : 'Folgt mit Version 3.6.',
+		available: MAX_QUALITY_AVAILABLE,
+	},
 ]
 
 /** The decoder settings of the max mode, whatever the user tuned for the standard one. */
@@ -32,8 +46,7 @@ export function maxQualityModelOptions(base: ModelOptions): ModelOptions {
 		sampling_strategy: 'beam search',
 		beam_size: 5,
 		best_of: 5,
-		// Short enough that one misheard window cannot drag the next ones along with it.
-		max_text_ctx: 64,
+		max_text_ctx: DEFAULT_MAX_TEXT_CTX,
 		// Plain lines: word-level splitting would only shorten them.
 		word_timestamps: false,
 		max_sentence_len: undefined,
@@ -49,5 +62,5 @@ export function modelPathFor(mode: QualityMode | undefined, selectedModelPath: s
 /** The last mode picked in the start dialog, offered again next time. */
 export function useLastQualityMode() {
 	const [stored, setStored] = usePersisted<QualityMode>(CONFIG_KEYS.qualityMode, 'standard')
-	return [stored === 'max' ? 'max' : 'standard', setStored] as const
+	return [stored === 'max' && MAX_QUALITY_AVAILABLE ? 'max' : 'standard', setStored] as const
 }

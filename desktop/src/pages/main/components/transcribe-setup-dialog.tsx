@@ -159,10 +159,11 @@ export default function TranscribeSetupDialog() {
 									type="button"
 									role="radio"
 									aria-checked={quality === mode.value}
-									disabled={preparing}
+									disabled={preparing || !mode.available}
 									onClick={() => void pickQuality(mode.value)}
 									className={cn(
 										'flex cursor-pointer flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-start transition-colors disabled:cursor-wait',
+										!mode.available && 'cursor-not-allowed opacity-50 disabled:cursor-not-allowed',
 										quality === mode.value ? 'border-foreground/60 bg-muted' : 'border-border/70 bg-background/65 hover:bg-muted/50',
 									)}>
 									<span className="flex items-center gap-2 text-sm font-medium">
