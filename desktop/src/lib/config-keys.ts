@@ -33,6 +33,8 @@ export const CONFIG_KEYS = {
 	advancedOptions: 'transcription.advancedOptions',
 	recentLanguages: 'transcription.recentLanguages',
 	diarizeEnabled: 'transcription.recognizeSpeakers',
+	/** Which speaker model runs: Sortformer or Nemotron (A/B comparison). */
+	diarizeEngine: 'transcription.speakerModel',
 	stableTimestampsEnabled: 'transcription.stableTimestamps',
 	soundOnFinish: 'transcription.soundOnFinish',
 	focusOnFinish: 'transcription.focusOnFinish',

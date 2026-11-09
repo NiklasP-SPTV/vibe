@@ -68,6 +68,9 @@ pub(super) async fn transcribe(
     let diar_segments = diarize_model
         .as_deref()
         .map_or_else(Vec::new, |model_path| diarization::diarize(model_path, &samples));
+    // Only Nemotron's turns are fine-grained enough to split a line between speakers; with
+    // Sortformer a whisper line keeps the one speaker it overlaps most, as before.
+    let word_speakers = !diar_segments.is_empty() && diarize_model.as_deref().is_some_and(diarization::splits_on_words);
 
     if stable_timestamps && vad_model_path.is_none() {
         return Err(error(
@@ -86,6 +89,7 @@ pub(super) async fn transcribe(
             stable_timestamps,
             vad_model_path,
             diar_segments,
+            word_speakers,
             source_timecode,
             wrap_24h,
         )
@@ -106,7 +110,7 @@ pub(super) async fn transcribe(
         ));
     }
 
-    let opts = build_options(&form, verbose, stable_timestamps, vad_model_path);
+    let opts = build_options(&form, verbose, stable_timestamps, vad_model_path, word_speakers);
     let result = ctx.transcribe(&samples, opts).map_err(|err| {
         tracing::error!(samples = samples.len(), "transcription failed: {err:#}");
         error(
@@ -116,14 +120,23 @@ pub(super) async fn transcribe(
         )
     })?;
 
-    Ok(format_response(&response_format, &result, &diar_segments, source_timecode.as_ref(), wrap_24h))
+    Ok(format_response(
+        &response_format,
+        &result,
+        &diar_segments,
+        source_timecode.as_ref(),
+        wrap_24h,
+    ))
 }
 
+/// `diarized` asks the engine for word timings, which speaker attribution splits
+/// segments on. Parakeet and Nemotron always have them; whisper computes them on request.
 pub(super) fn build_options(
     form: &HashMap<String, String>,
     verbose: bool,
     stable_timestamps: bool,
     vad_model_path: Option<String>,
+    diarized: bool,
 ) -> TranscribeOptions {
     let values = FormValues::new(form);
     TranscribeOptions {
@@ -135,7 +148,7 @@ pub(super) fn build_options(
         verbose,
         temperature: values.f32("temperature"),
         max_text_ctx: values.i32("max_text_ctx"),
-        word_timestamps: values.bool("word_timestamps"),
+        word_timestamps: diarized || values.bool("word_timestamps"),
         max_segment_len: values.i32("max_segment_len"),
         sampling_greedy: form.get("sampling_strategy").is_none_or(|strategy| strategy != "beam_search"),
         best_of: values.i32("best_of"),
@@ -153,12 +166,10 @@ fn format_response(
     wrap_24h: bool,
 ) -> Response {
     match response_format {
-        "verbose_json" => Json(
-            source_timecode.map_or_else(
-                || format::build_verbose_json(result, diar_segments),
-                |timecode| format::build_verbose_json_with_timecode(result, diar_segments, Some(timecode), wrap_24h),
-            ),
-        )
+        "verbose_json" => Json(source_timecode.map_or_else(
+            || format::build_verbose_json(result, diar_segments),
+            |timecode| format::build_verbose_json_with_timecode(result, diar_segments, Some(timecode), wrap_24h),
+        ))
         .into_response(),
         "text" => ([(header::CONTENT_TYPE, "text/plain; charset=utf-8")], result.text()).into_response(),
         "srt" => (

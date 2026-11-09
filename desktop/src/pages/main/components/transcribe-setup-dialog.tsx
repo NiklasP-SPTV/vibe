@@ -9,6 +9,7 @@ import { NativeSelect } from '~/components/ui/native-select'
 import { Switch } from '~/components/ui/switch'
 import { isVideoPath, type BurnInPosition } from '~/lib/burn-in'
 import { QUALITY_MODES, useLastQualityMode, type QualityMode } from '~/lib/quality-mode'
+import { asDiarizeEngine, DIARIZE_ENGINES } from '~/lib/diarize-engine'
 import { cn } from '~/lib/style'
 import { parseTimecodeInput } from '~/lib/timecode'
 import { useTranslationSettings } from '~/lib/translation'
@@ -188,6 +189,21 @@ export default function TranscribeSetupDialog() {
 								onCheckedChange={(value) => void modelGates.toggleDiarization(value)}
 							/>
 						</OptionLine>
+						{preference.diarizeEnabled && (
+							<OptionLine icon={<Users className="h-3.5 w-3.5 opacity-0" />} label="Sprechermodell">
+								<NativeSelect
+									aria-label="Sprechermodell"
+									className="h-8 w-auto rounded-lg px-2.5 py-0 text-xs"
+									value={preference.diarizeEngine}
+									onChange={(event) => void modelGates.chooseDiarizeEngine(asDiarizeEngine(event.target.value))}>
+									{DIARIZE_ENGINES.map((engine) => (
+										<option key={engine.value} value={engine.value}>
+											{engine.label}
+										</option>
+									))}
+								</NativeSelect>
+							</OptionLine>
+						)}
 						{timecodeEnabled && hasVideo && (
 							<OptionLine icon={<Clapperboard className="h-3.5 w-3.5" />} label="Video mit Timecode-Einblendung">
 								{burnIn && (

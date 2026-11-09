@@ -16,6 +16,7 @@ import { readConfig } from '~/lib/config-store'
 import { message } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import type { ModelMetadata } from '~/lib/model'
+import { asDiarizeEngine, DEFAULT_DIARIZE_ENGINE, type DiarizeEngine } from '~/lib/diarize-engine'
 import { DEFAULT_MAX_TEXT_CTX, MODEL_DEFAULTS_REVISION, withCurrentDefaults } from '~/lib/model-defaults'
 import { completeSourceTimecodeSettings, DEFAULT_SOURCE_TIMECODE_SETTINGS, type SourceTimecodeSettings } from '~/lib/source-timecode'
 
@@ -109,6 +110,8 @@ export interface Preference {
 
 	diarizeEnabled: boolean
 	setDiarizeEnabled: ModifyState<boolean>
+	diarizeEngine: DiarizeEngine
+	setDiarizeEngine: ModifyState<DiarizeEngine>
 	stableTimestampsEnabled: boolean
 	setStableTimestampsEnabled: ModifyState<boolean>
 
@@ -268,9 +271,14 @@ export function PreferenceProvider({ children }: { children: ReactNode }) {
 
 	const [recentLanguages, setRecentLanguages] = usePersisted<{ code: string; ts: number }[]>(CONFIG_KEYS.recentLanguages, [])
 	const [diarizeEnabled, setDiarizeEnabled] = usePersisted<boolean>(CONFIG_KEYS.diarizeEnabled, false)
+	const [storedDiarizeEngine, setDiarizeEngine] = usePersisted<DiarizeEngine>(CONFIG_KEYS.diarizeEngine, DEFAULT_DIARIZE_ENGINE)
+	const diarizeEngine = asDiarizeEngine(storedDiarizeEngine)
 	const [stableTimestampsEnabled, setStableTimestampsEnabled] = usePersisted<boolean>(CONFIG_KEYS.stableTimestampsEnabled, false)
 	const [storedExportOptions, setStoredExportOptions] = usePersisted<Partial<ExportOptions>>(CONFIG_KEYS.exportOptions, DEFAULT_EXPORT_OPTIONS)
-	const [storedSourceTimecode, setStoredSourceTimecode] = usePersisted<Partial<SourceTimecodeSettings>>(CONFIG_KEYS.sourceTimecode, DEFAULT_SOURCE_TIMECODE_SETTINGS)
+	const [storedSourceTimecode, setStoredSourceTimecode] = usePersisted<Partial<SourceTimecodeSettings>>(
+		CONFIG_KEYS.sourceTimecode,
+		DEFAULT_SOURCE_TIMECODE_SETTINGS,
+	)
 	const sourceTimecode = useMemo<SourceTimecodeSettings>(
 		// Older builds stored manual fallback fields here; only the known switches are read now.
 		() => completeSourceTimecodeSettings(storedSourceTimecode),
@@ -482,6 +490,8 @@ export function PreferenceProvider({ children }: { children: ReactNode }) {
 		setRecentLanguages,
 		diarizeEnabled,
 		setDiarizeEnabled,
+		diarizeEngine,
+		setDiarizeEngine,
 		stableTimestampsEnabled,
 		setStableTimestampsEnabled,
 		exportOptions,

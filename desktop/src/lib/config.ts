@@ -62,6 +62,18 @@ export const diarizeModelIntegrity: ModelIntegrity = {
 	size: 147075776,
 	sha256: '0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a',
 }
+/**
+ * NVIDIA Nemotron-3-Diarization (up to 8 speakers), taken over from upstream (#1619) as a second
+ * speaker model next to Sortformer, so both can be compared on real material before one is
+ * dropped. Q8_0 GGUF exported by `server/crates/nemotron-diarize-rs/scripts/export.py`. The
+ * engine picks the diarizer by this file's name, so it must keep "nemotron" in it.
+ */
+export const nemotronDiarizeModelFilename = 'nemotron-3-diarization-Q8_0.gguf'
+export const nemotronDiarizeModelUrl = 'https://huggingface.co/vibe-app/nemotron-3-diarization-gguf/resolve/main/nemotron-3-diarization-Q8_0.gguf'
+export const nemotronDiarizeModelIntegrity: ModelIntegrity = {
+	size: 108541632,
+	sha256: 'a25f026847d765c8661fd5095c73a0e5f20d310dcb8249c654e3828592a2fc73',
+}
 export const vadModelFilename = 'ggml-silero-v6.2.0.bin'
 export const vadModelUrl = 'https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin'
 

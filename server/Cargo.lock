@@ -1076,6 +1076,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "nemotron-diarize-rs"
+version = "0.1.0"
+dependencies = [
+ "ggml-rs-sys",
+ "hound",
+ "rayon",
+ "rustfft",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "nemotron-rs"
 version = "0.1.0"
 dependencies = [
@@ -2215,6 +2228,7 @@ dependencies = [
  "hound",
  "humantime",
  "libc",
+ "nemotron-diarize-rs",
  "nemotron-rs",
  "parakeet-rs",
  "reqwest",

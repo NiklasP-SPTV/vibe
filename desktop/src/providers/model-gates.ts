@@ -7,6 +7,7 @@ import { m } from '~/paraglide/messages.js'
 import * as config from '~/lib/config'
 import type { ModelIntegrity } from '~/lib/config'
 import { isModelFileUsable } from '~/lib/model'
+import { diarizeEngineInfo, type DiarizeEngine } from '~/lib/diarize-engine'
 import { MAX_QUALITY_MODEL } from '~/lib/quality-mode'
 import { usePreferenceProvider } from '~/providers/preference'
 import { useToastProvider } from '~/providers/toast'
@@ -46,6 +47,22 @@ export function useModelGates() {
 		[progressToast],
 	)
 
+	/** True once the given speaker model is on disk, asking to download it when it is not. */
+	const ensureDiarizeModel = useCallback(
+		(engine: DiarizeEngine) => {
+			const info = diarizeEngineInfo(engine)
+			return ensureModel({
+				filename: info.filename,
+				url: info.url,
+				integrity: info.integrity,
+				title: m.diarization(),
+				question: m.downloadDiarizeModel(),
+				downloading: m.downloadingDiarizeModel(),
+			})
+		},
+		[ensureModel],
+	)
+
 	const toggleDiarization = useCallback(
 		async (checked: boolean) => {
 			if (!checked) {
@@ -53,21 +70,26 @@ export function useModelGates() {
 				return
 			}
 			try {
-				const ready = await ensureModel({
-					filename: config.diarizeModelFilename,
-					url: config.diarizeModelUrl,
-					integrity: config.diarizeModelIntegrity,
-					title: m.diarization(),
-					question: m.downloadDiarizeModel(),
-					downloading: m.downloadingDiarizeModel(),
-				})
-				if (ready) preference.setDiarizeEnabled(true)
+				if (await ensureDiarizeModel(preference.diarizeEngine)) preference.setDiarizeEnabled(true)
 			} catch (error) {
 				console.error('diarization setup failed:', error)
 				toast.error(String(error))
 			}
 		},
-		[ensureModel, preference],
+		[ensureDiarizeModel, preference],
+	)
+
+	/** Switches the speaker model, downloading it first; a declined or failed download keeps the old one. */
+	const chooseDiarizeEngine = useCallback(
+		async (engine: DiarizeEngine) => {
+			try {
+				if (await ensureDiarizeModel(engine)) preference.setDiarizeEngine(engine)
+			} catch (error) {
+				console.error('speaker model setup failed:', error)
+				toast.error(String(error))
+			}
+		},
+		[ensureDiarizeModel, preference],
 	)
 
 	const toggleStableTimestamps = useCallback(
@@ -133,5 +155,5 @@ export function useModelGates() {
 		}
 	}, [progressToast])
 
-	return { toggleDiarization, toggleStableTimestamps, ensureMaxQuality }
+	return { toggleDiarization, chooseDiarizeEngine, toggleStableTimestamps, ensureMaxQuality }
 }

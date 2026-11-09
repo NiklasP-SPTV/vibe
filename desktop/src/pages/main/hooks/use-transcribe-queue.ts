@@ -36,6 +36,7 @@ import {
 } from '~/lib/transcripts-store'
 import type { NamedPath, ProjectSource } from '~/lib/types'
 import { ErrorModalContext } from '~/providers/error-modal'
+import { diarizeEngineInfo } from '~/lib/diarize-engine'
 import { withoutUnsupportedOptions } from '~/lib/model'
 import type { BurnInPosition } from '~/lib/burn-in'
 import { maxQualityModelOptions, modelPathFor, type QualityMode } from '~/lib/quality-mode'
@@ -185,7 +186,7 @@ async function buildSharedOptions(preference: Preference, quality: QualityMode =
 	const stable = max || preference.stableTimestampsEnabled
 	const modelsFolder = await invoke<string>('get_models_folder')
 	return {
-		...(preference.diarizeEnabled ? { diarize_model: `${modelsFolder}/${config.diarizeModelFilename}` } : {}),
+		...(preference.diarizeEnabled ? { diarize_model: `${modelsFolder}/${diarizeEngineInfo(preference.diarizeEngine).filename}` } : {}),
 		...(stable || requiresVad ? { vad_model: `${modelsFolder}/${config.vadModelFilename}` } : {}),
 		...(stable ? { stable_timestamps: true } : {}),
 	}
@@ -344,7 +345,15 @@ export function useTranscribeQueue(): TranscribeQueue {
 			if (!current.autoExport.enabled || segments.length === 0) return null
 			const sourceTimecode = await getSourceTimecode(job.path, job.sourceTimecode, current.sourceTimecode)
 			const result = await exportTranscript(
-				{ name: job.name, path: job.path, segments, summary: job.summary, speakerNames: job.speakerNames, sourceTimecode, wrapAt24Hours: current.sourceTimecode.wrapAt24Hours },
+				{
+					name: job.name,
+					path: job.path,
+					segments,
+					summary: job.summary,
+					speakerNames: job.speakerNames,
+					sourceTimecode,
+					wrapAt24Hours: current.sourceTimecode.wrapAt24Hours,
+				},
 				current.autoExport,
 				{
 					direction: current.textAreaDirection,
