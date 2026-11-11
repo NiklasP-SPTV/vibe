@@ -1,7 +1,7 @@
 import { Clipboard, Download, Moon, PilcrowLeft, PilcrowRight, Sun } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useMemo, useRef, type ReactNode } from 'react'
-import Markdown from 'react-markdown'
+import { SafeMarkdown } from '~/components/safe-markdown'
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter'
 import jsonLanguage from 'react-syntax-highlighter/dist/esm/languages/prism/json'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -391,7 +391,11 @@ export default function TranscriptExportDialog({
 						<div id="export-preview-heading">
 							<SectionLabel>{m.exportPreview()}</SectionLabel>
 						</div>
-						{timecodeNotice && <p className="mt-2 text-xs text-muted-foreground" role="status">{timecodeNotice}</p>}
+						{timecodeNotice && (
+							<p className="mt-2 text-xs text-muted-foreground" role="status">
+								{timecodeNotice}
+							</p>
+						)}
 						{renderedPreview ? (
 							<RenderedDocumentPreview html={renderedPreview} direction={direction} theme={theme} />
 						) : format === 'md' ? (
@@ -401,7 +405,7 @@ export default function TranscriptExportDialog({
 								className={cn('px-5 py-2', theme === 'dark' ? 'bg-[#181818] text-[#ececec]' : 'bg-white text-[#1a1c1f]')}
 								renderRow={(block) => (
 									<div className={cn('prose max-w-none py-2 text-sm', theme === 'dark' && 'prose-invert')}>
-										<Markdown>{block}</Markdown>
+										<SafeMarkdown>{block}</SafeMarkdown>
 									</div>
 								)}
 							/>
