@@ -16,21 +16,25 @@ pub struct SourceTimecode {
 
 /// Read metadata through ffprobe and fall back to the ffmpeg input banner.
 pub fn probe_path(path: &Path) -> Option<SourceTimecode> {
+    // An ffprobe beside the bundled ffmpeg comes before one on the PATH (IT review N6).
     let mut probes = Vec::new();
-    if let Some(path) = find_in_path("ffprobe") {
-        probes.push(path);
-    }
     if let Ok(ffmpeg) = crate::audio::find_ffmpeg() {
         if let Some(parent) = ffmpeg.parent() {
             let candidate = parent.join(if cfg!(windows) { "ffprobe.exe" } else { "ffprobe" });
-            if candidate.is_file() && !probes.contains(&candidate) {
+            if candidate.is_file() {
                 probes.push(candidate);
             }
+        }
+    }
+    if let Some(path) = find_in_path("ffprobe") {
+        if !probes.contains(&path) {
+            probes.push(path);
         }
     }
 
     for ffprobe in probes {
         let Ok(output) = Command::new(ffprobe)
+            .args(crate::audio::INPUT_PROTOCOLS)
             .args([
                 "-v",
                 "error",
@@ -53,7 +57,9 @@ pub fn probe_path(path: &Path) -> Option<SourceTimecode> {
 
     let ffmpeg = crate::audio::find_ffmpeg().ok()?;
     let output = Command::new(ffmpeg)
-        .args(["-hide_banner", "-nostdin", "-i"])
+        .args(["-hide_banner", "-nostdin"])
+        .args(crate::audio::INPUT_PROTOCOLS)
+        .arg("-i")
         .arg(path)
         .output()
         .ok()?;

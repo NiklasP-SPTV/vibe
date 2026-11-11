@@ -39,17 +39,15 @@ pub fn get_vibe_temp_folder() -> PathBuf {
     std::env::temp_dir()
 }
 
+/// Input options for every ffmpeg and ffprobe run: read local files and pipes only, so a
+/// crafted playlist or container cannot make ffmpeg fetch from the network or other
+/// protocols (IT review H2).
+pub const INPUT_PROTOCOLS: [&str; 2] = ["-protocol_whitelist", "file,pipe"];
+
+/// The ffmpeg bundled with the app comes first, one on the PATH only as a fallback, and the
+/// working directory is never searched: a binary planted there or earlier on the PATH would
+/// otherwise decode every file the app opens (IT review N6).
 pub fn find_ffmpeg_path() -> Option<PathBuf> {
-    if let Ok(path) = which(EXECUTABLE_NAME) {
-        return Some(path);
-    }
-
-    let cwd = std::env::current_dir().ok()?;
-    let ffmpeg_in_cwd = cwd.join(EXECUTABLE_NAME);
-    if ffmpeg_in_cwd.is_file() && ffmpeg_in_cwd.exists() {
-        return Some(ffmpeg_in_cwd);
-    }
-
     if let Ok(exe_path) = std::env::current_exe() {
         let exe_folder = exe_path.parent()?;
         let ffmpeg_in_exe_folder = exe_folder.join(EXECUTABLE_NAME);
@@ -66,7 +64,7 @@ pub fn find_ffmpeg_path() -> Option<PathBuf> {
         }
     }
 
-    None
+    which(EXECUTABLE_NAME).ok()
 }
 
 pub fn normalize(input: PathBuf, output: PathBuf, additional_ffmpeg_args: Option<Vec<String>>) -> Result<()> {
@@ -74,7 +72,7 @@ pub fn normalize(input: PathBuf, output: PathBuf, additional_ffmpeg_args: Option
     tracing::debug!("ffmpeg path is {}", ffmpeg_path.display());
 
     let mut cmd = Command::new(ffmpeg_path);
-    let cmd = cmd.stderr(Stdio::piped()).args([
+    let cmd = cmd.stderr(Stdio::piped()).args(INPUT_PROTOCOLS).args([
         "-i",
         input.to_str().context("tostr")?,
         "-ar",
@@ -116,6 +114,7 @@ pub fn merge_wav_files(a: PathBuf, b: PathBuf, dst: PathBuf) -> Result<()> {
     let output = dst.to_str().context("tostr")?;
 
     let mut cmd = Command::new(ffmpeg_path);
+    cmd.args(INPUT_PROTOCOLS);
     cmd.args([
         "-i",
         a.to_str().context("tostr")?,

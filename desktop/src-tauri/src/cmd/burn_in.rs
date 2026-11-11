@@ -158,6 +158,8 @@ fn burn_in_sync(app_handle: &AppHandle, request: BurnInRequest) -> Result<String
         "-hide_banner".into(),
         "-nostdin".into(),
         "-y".into(),
+        crate::ffmpeg::INPUT_PROTOCOLS[0].into(),
+        crate::ffmpeg::INPUT_PROTOCOLS[1].into(),
         "-i".into(),
         path_arg(&input),
     ];
@@ -319,7 +321,9 @@ fn encoder_args(encoder: Encoder, height: u32) -> Vec<String> {
 /// Duration and picture height from ffmpeg's input banner (works without ffprobe).
 fn probe(ffmpeg: &Path, input: &Path) -> Option<MediaInfo> {
     let output = hidden(&mut Command::new(ffmpeg))
-        .args(["-hide_banner", "-nostdin", "-i"])
+        .args(["-hide_banner", "-nostdin"])
+        .args(crate::ffmpeg::INPUT_PROTOCOLS)
+        .arg("-i")
         .arg(input)
         .stdin(Stdio::null())
         .output()

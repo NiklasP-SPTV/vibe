@@ -44,7 +44,8 @@ pub fn convert_to_native_wav(
     options: ReadOptions,
 ) -> anyhow::Result<()> {
     let ffmpeg = find_ffmpeg()?;
-    let mut args = vec!["-i".to_string(), input_path.as_ref().to_string_lossy().into_owned()];
+    let mut args: Vec<String> = INPUT_PROTOCOLS.iter().map(|arg| arg.to_string()).collect();
+    args.extend(["-i".to_string(), input_path.as_ref().to_string_lossy().into_owned()]);
 
     // ffmpeg's default stream selection keeps one audio track, the one with the
     // most channels. A recording with a track per source (OBS, Discord) would lose
@@ -98,7 +99,13 @@ pub fn convert_to_native_wav(
 /// exits non-zero but lists every stream on stderr; anything that goes wrong
 /// counts as one, which is the command that always worked.
 fn count_audio_tracks(ffmpeg: &Path, input: &Path) -> usize {
-    let Ok(output) = Command::new(ffmpeg).args(["-hide_banner", "-i"]).arg(input).output() else {
+    let Ok(output) = Command::new(ffmpeg)
+        .arg("-hide_banner")
+        .args(INPUT_PROTOCOLS)
+        .arg("-i")
+        .arg(input)
+        .output()
+    else {
         return 1;
     };
     let count = String::from_utf8_lossy(&output.stderr)
@@ -130,11 +137,14 @@ fn try_read_native_wav<R: Read + Seek>(reader: &mut R) -> anyhow::Result<Vec<f32
     Ok(samples)
 }
 
-pub(crate) fn find_ffmpeg() -> anyhow::Result<PathBuf> {
-    if let Some(path) = find_in_path("ffmpeg") {
-        return Ok(path);
-    }
+/// Input options for every ffmpeg and ffprobe run: read local files and pipes only, so a
+/// crafted playlist or container cannot make ffmpeg fetch from the network or other
+/// protocols (IT review H2).
+pub(crate) const INPUT_PROTOCOLS: [&str; 2] = ["-protocol_whitelist", "file,pipe"];
 
+/// The ffmpeg the app ships comes first; one on the PATH is only a fallback for a bare
+/// engine build (IT review N6).
+pub(crate) fn find_ffmpeg() -> anyhow::Result<PathBuf> {
     if let Ok(path) = std::env::var("VIBE_SERVER_FFMPEG_PATH") {
         let path = PathBuf::from(path);
         if path.exists() {
@@ -155,6 +165,10 @@ pub(crate) fn find_ffmpeg() -> anyhow::Result<PathBuf> {
                 }
             }
         }
+    }
+
+    if let Some(path) = find_in_path("ffmpeg") {
+        return Ok(path);
     }
 
     anyhow::bail!("ffmpeg not found")

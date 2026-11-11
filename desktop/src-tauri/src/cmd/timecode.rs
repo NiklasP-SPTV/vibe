@@ -24,22 +24,26 @@ fn probe_media_timecode_sync(path: String) -> String {
         return String::new();
     }
 
+    // An ffprobe beside the bundled ffmpeg comes before one on the PATH (IT review N6).
     let mut candidates = Vec::new();
-    if let Ok(path) = which::which(if cfg!(windows) { "ffprobe.exe" } else { "ffprobe" }) {
-        candidates.push(path);
-    }
     if let Some(ffmpeg) = find_ffmpeg_path() {
         if let Some(parent) = ffmpeg.parent() {
             let name = if cfg!(windows) { "ffprobe.exe" } else { "ffprobe" };
             let sibling = parent.join(name);
-            if sibling.is_file() && !candidates.contains(&sibling) {
+            if sibling.is_file() {
                 candidates.push(sibling);
             }
+        }
+    }
+    if let Ok(path) = which::which(if cfg!(windows) { "ffprobe.exe" } else { "ffprobe" }) {
+        if !candidates.contains(&path) {
+            candidates.push(path);
         }
     }
 
     for ffprobe in candidates {
         let output = hidden_command(&mut Command::new(ffprobe))
+            .args(crate::ffmpeg::INPUT_PROTOCOLS)
             .args([
                 "-v",
                 "error",
@@ -61,7 +65,9 @@ fn probe_media_timecode_sync(path: String) -> String {
         return String::new();
     };
     let output = hidden_command(&mut Command::new(ffmpeg))
-        .args(["-hide_banner", "-nostdin", "-i"])
+        .args(["-hide_banner", "-nostdin"])
+        .args(crate::ffmpeg::INPUT_PROTOCOLS)
+        .arg("-i")
         .arg(input)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
