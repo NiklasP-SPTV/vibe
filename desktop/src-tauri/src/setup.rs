@@ -88,12 +88,20 @@ pub fn setup(app: &App) -> Result<(), Box<dyn std::error::Error>> {
             if let Some(app_handle) = STATIC_APP.lock().expect("lock").as_ref() {
                 app_handle
                     .dialog()
-                    .message("App crashed with error. Please register to Github and then click report.")
+                    .message(
+                        "Vibe ist abgestürzt. „Melden“ öffnet einen vorausgefüllten Fehlerbericht im \
+                         GitHub-Projekt des Forks; er ist öffentlich sichtbar und wird erst gesendet, wenn \
+                         Sie ihn dort abschicken. Bitte vorher auf Dateinamen und Pfade prüfen.",
+                    )
                     .kind(tauri_plugin_dialog::MessageDialogKind::Error)
-                    .title("Vibe Crashed")
-                    .buttons(MessageDialogButtons::OkCustom("Report".into()))
-                    .show(|_| {});
-                let _ = tauri_plugin_opener::open_url(get_issue_url(format!("{:?}", info)), None::<&str>);
+                    .title("Vibe abgestürzt")
+                    .buttons(MessageDialogButtons::OkCancelCustom("Melden".into(), "Schließen".into()))
+                    .show(move |report| {
+                        // Only on request: the report carries log lines, which can name files (IT review N4).
+                        if report {
+                            let _ = tauri_plugin_opener::open_url(get_issue_url(format!("{:?}", info)), None::<&str>);
+                        }
+                    });
             }
 
             crash_handler::CrashEventResult::Handled(true)

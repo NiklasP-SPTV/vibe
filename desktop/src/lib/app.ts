@@ -76,14 +76,13 @@ export function issueTitleFrom(log: string): string {
  * "what happened" answer, and the collected diagnostics as the log block.
  */
 export async function getIssueUrl(logs: string) {
+	// Reports go to this fork, not to the original project's public tracker (IT review N4).
 	const params = new URLSearchParams({
 		labels: 'bug',
-		template: 'bug_report.yaml',
 		title: issueTitleFrom(logs),
-		'what-happened': issueTitleFrom(logs),
-		logs,
+		body: `${issueTitleFrom(logs)}\n\n\`\`\`\n${logs}\n\`\`\``,
 	})
-	return `https://github.com/thewh1teagle/vibe/issues/new?${params.toString()}`
+	return `https://github.com/NiklasP-SPTV/vibe/issues/new?${params.toString()}`
 }
 
 export async function openPath(path: NamedPath) {
