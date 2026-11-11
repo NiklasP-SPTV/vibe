@@ -81,6 +81,10 @@ jobs:
             src="${src}.exe"
           fi
           cp "$src" "${{ matrix.binary }}"
+      - name: Fetch the pinned ffmpeg and check its hash
+        if: matrix.archive != ''
+        shell: bash
+        run: bash scripts/fetch-ffmpeg.sh "${{ matrix.package_os }}" "${{ matrix.package_arch }}" "target/ffmpeg-${{ matrix.package_os }}-${{ matrix.package_arch }}.zip"
       - name: Package release bundle with ffmpeg
         if: matrix.archive != ''
         shell: bash

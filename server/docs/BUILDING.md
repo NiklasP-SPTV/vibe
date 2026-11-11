@@ -51,7 +51,7 @@ AVX2 is compiled into every ggml CPU kernel, so one build cannot serve a CPU wit
 
 ## Packaging a release archive
 
-`chore package-release <binary> <darwin|windows> <amd64|arm64> <out.tar.gz|out.zip>` bundles a built `vibe-server` binary with ffmpeg the way the release workflow does.
+`chore package-release <binary> <darwin|windows> <amd64|arm64> <out.tar.gz|out.zip>` bundles a built `vibe-server` binary with ffmpeg the way the release workflow does. Fetch the pinned archive first with `bash scripts/fetch-ffmpeg.sh <darwin|windows> <amd64|arm64> target/ffmpeg-<os>-<arch>.zip`, which checks it against `ffmpeg-pins.txt`.
 
 ## Releasing binaries
 
