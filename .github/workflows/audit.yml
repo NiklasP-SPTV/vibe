@@ -1,0 +1,42 @@
+name: Audit
+
+# Known vulnerabilities in the locked dependencies of the app, the engine and the frontend
+# (IT review M10, M11). Runs on every push to dev and main and weekly, so an advisory published
+# after a release still shows up.
+
+on:
+    push:
+        branches: [dev, main]
+    pull_request:
+        branches: [main]
+    schedule:
+        - cron: '0 6 * * 1'
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    cargo-audit:
+        runs-on: ubuntu-24.04
+        strategy:
+            fail-fast: false
+            matrix:
+                lockfile: [Cargo.lock, server/Cargo.lock]
+        steps:
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+            - name: Install cargo-audit
+              run: cargo install cargo-audit --version 0.23.0 --locked
+            - name: Audit ${{ matrix.lockfile }}
+              run: cargo audit --file "${{ matrix.lockfile }}"
+
+    pnpm-audit:
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+            - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+              with:
+                  package_json_file: desktop/package.json
+            - name: Audit production dependencies
+              working-directory: desktop
+              run: pnpm audit --prod --audit-level high

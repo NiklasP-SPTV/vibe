@@ -39,34 +39,35 @@ jobs:
 
         runs-on: ${{ matrix.platform }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
             - name: setup pnpm
-              uses: pnpm/action-setup@v4
+              uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
               with:
                   package_json_file: desktop/package.json
 
             - name: setup Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
               with:
                   node-version: 22
                   cache: pnpm
                   cache-dependency-path: desktop/pnpm-lock.yaml
 
             - name: setup uv
-              uses: astral-sh/setup-uv@v5
+              uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
 
             - name: setup chore
-              uses: getchore/setup-chore@v1
+              uses: getchore/setup-chore@c8328e6967f11b7fb80b5f75f000066586ccf891 # v1
               with:
                   version: v1.6.0
 
             - name: Rust cache
-              uses: swatinem/rust-cache@v2
+              uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
 
             - name: Install Rust stable
-              uses: dtolnay/rust-toolchain@stable
+              uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
               with:
+                  toolchain: stable
                   # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
                   targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
@@ -86,23 +87,20 @@ jobs:
             - name: Fetch the sidecars for ${{ matrix.target_triple }}
               run: chore setup ${{ matrix.target_triple }}
 
-            - name: Setup macOS signing env
-              if: matrix.platform == 'macos-latest' && inputs.sign-macos
-              run: |
-                  echo "APPLE_CERTIFICATE=${{ secrets.APPLE_CERTIFICATE }}" >> "$GITHUB_ENV"
-                  echo "APPLE_CERTIFICATE_PASSWORD=${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" >> "$GITHUB_ENV"
-                  echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_ENV"
-                  echo "APPLE_ID=${{ secrets.APPLE_ID }}" >> "$GITHUB_ENV"
-                  echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}" >> "$GITHUB_ENV"
-                  echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> "$GITHUB_ENV"
-
             - name: Build
-              uses: tauri-apps/tauri-action@v0
+              uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
               env:
                   GITHUB_TOKEN: ${{ github.token }}
                   # Tauri Updater
                   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
                   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+                  # macOS signing: only this step sees the Apple secrets, and only when signing is asked for (IT review M10)
+                  APPLE_CERTIFICATE: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_CERTIFICATE || '' }}
+                  APPLE_CERTIFICATE_PASSWORD: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+                  APPLE_SIGNING_IDENTITY: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_SIGNING_IDENTITY || '' }}
+                  APPLE_ID: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_ID || '' }}
+                  APPLE_PASSWORD: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_PASSWORD || '' }}
+                  APPLE_TEAM_ID: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_TEAM_ID || '' }}
                   # Windows signing (remote YubiKey sign server)
                   SIGN_ENABLED: ${{ matrix.platform == 'windows-latest' && inputs.sign-windows && 'true' || 'false' }}
                   SIGN_TUNNEL_URL: ${{ secrets.SIGN_TUNNEL_URL }}

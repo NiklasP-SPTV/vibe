@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ env.VERSION }}
           # Tag the commit the binaries are built from, not the default branch (IT review N12).
@@ -44,33 +44,43 @@ jobs:
         include:
           - runner: ubuntu-24.04
             binary: vibe-server-linux-amd64
+            libs_platform: linux-x86_64
           - runner: ubuntu-24.04-arm
             binary: vibe-server-linux-arm64
+            libs_platform: linux-aarch64
           - runner: macos-15
             binary: vibe-server-darwin-arm64
+            libs_platform: darwin-arm64
             package_os: darwin
             package_arch: arm64
             archive: vibe-server-darwin-arm64-with-ffmpeg.tar.gz
           - runner: macos-15-intel
             binary: vibe-server-darwin-amd64
+            libs_platform: darwin-x86_64
             cargo_flags: --no-default-features
             package_os: darwin
             package_arch: amd64
             archive: vibe-server-darwin-amd64-with-ffmpeg.tar.gz
           - runner: windows-latest
             binary: vibe-server-windows-amd64.exe
+            libs_platform: windows-amd64-msvc
             package_os: windows
             package_arch: amd64
             archive: vibe-server-windows-amd64-with-ffmpeg.zip
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
       # No Vulkan SDK: the loader is opened at runtime (libs/patches/0003), so the binary links nothing from it.
       - name: Setup chore
-        uses: getchore/setup-chore@v1
-      - name: Download prebuilt GGML libs
-        run: chore fetch-libs
+        uses: getchore/setup-chore@c8328e6967f11b7fb80b5f75f000066586ccf891 # v1
+        with:
+          version: v1.10.0
+      - name: Download prebuilt GGML libs and check their hash
+        shell: bash
+        run: bash scripts/fetch-libs.sh "${{ matrix.libs_platform }}"
       - name: Build vibe-server
         shell: bash
         env:

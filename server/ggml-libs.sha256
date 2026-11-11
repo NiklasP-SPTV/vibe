@@ -1,0 +1,10 @@
+# SHA-256 of the prebuilt ggml libraries the engine links, from release
+# libraries-ggml-v0.22.0-r6 of thewh1teagle/vibe (GitHub's asset digests).
+# scripts/fetch-libs.sh refuses an archive that does not match (IT review M10).
+# Bump together with libs/ggml-version and libs/revision.
+eb839d2e852977514b1ea54f66d0691d192d50d23c17f4b8917f0483175ba93d  ggml-libs-darwin-arm64.tar.gz
+3de2e6cdb2bdde8b65df3b4d0175f1152c35409af15318c899b60aa52d2579a0  ggml-libs-darwin-x86_64.tar.gz
+8f4f4ef453a46f06075d57db6c77e807bb495fdab843f1f6e2cab7335d9ce9d0  ggml-libs-linux-aarch64.tar.gz
+c7ef17c25a8a89a37f7cad3a63a405a86d40ccf775e2d909637fb94cd8f10676  ggml-libs-linux-x86_64.tar.gz
+2f2a18c794c6eebaf8d166e796478162b28351c8f20c066f767e885b3e67188d  ggml-libs-windows-amd64-gnu.tar.gz
+b6faefd5bbec6cfc9b48836ae61d9aa682f45f2535bc27e05a38a1fad40d4ca2  ggml-libs-windows-amd64-msvc.tar.gz
