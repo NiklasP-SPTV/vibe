@@ -6,7 +6,7 @@
 	"app": {
 		"macOSPrivateApi": true,
 		"windows": [],
-		"withGlobalTauri": true,
+		"withGlobalTauri": false,
 		"security": {
 			"assetProtocol": {
 				"scope": {
@@ -18,7 +18,9 @@
 				},
 				"enable": true
 			},
-			"csp": null
+			"csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'",
+			"devCsp": null,
+			"dangerousDisableAssetCspModification": ["style-src"]
 		}
 	},
 	"build": {
