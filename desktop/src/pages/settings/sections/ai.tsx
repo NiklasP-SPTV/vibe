@@ -5,7 +5,7 @@ import { OPENAI_PATH } from '~/components/brand-glyph'
 import { m } from '~/paraglide/messages.js'
 import { ReactComponent as LinkIcon } from '~/icons/link.svg'
 import * as config from '~/lib/config'
-import { defaultModel, type AiPlatform, type AiSettings } from '~/lib/ai'
+import { aiDestination, defaultModel, type AiPlatform, type AiSettings } from '~/lib/ai'
 import NumberField from '~/components/number-field'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -83,7 +83,13 @@ export function AiSection({ vm, onOpenPrompt }: { vm: SettingsViewModel; onOpenP
 					<Switch checked={tasks.summary.enabled} onCheckedChange={(enabled) => setTask('summary', { enabled })} />
 				</SettingsRow>
 				{tasks.summary.enabled && (
-					<SettingsRow label={m.autoSummarizeOnFinish()} description={m.autoSummarizeOnFinishInfo()}>
+					<SettingsRow
+						label={m.autoSummarizeOnFinish()}
+						description={
+							aiDestination(connection).cloud
+								? `Nur mit einem lokalen Modell: ${aiDestination(connection).label} bekommt Transkripte nur auf Anforderung.`
+								: m.autoSummarizeOnFinishInfo()
+						}>
 						<Switch checked={tasks.summary.autoOnFinish} onCheckedChange={(autoOnFinish) => setTask('summary', { autoOnFinish })} />
 					</SettingsRow>
 				)}

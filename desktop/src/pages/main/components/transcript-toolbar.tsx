@@ -195,6 +195,17 @@ function SummaryMenu({ job, tab, setTab }: { job: Job | null; tab: TranscriptTab
 									{m.customizeSummary()}
 								</button>
 							)}
+							{canSummarize && (
+								<p
+									className={cn(
+										'px-2 pt-1 text-xs',
+										summaries.destination.cloud ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+									)}>
+									{summaries.destination.cloud
+										? `Sendet das Transkript an ${summaries.destination.label}`
+										: `Läuft auf ${summaries.destination.label}`}
+								</p>
+							)}
 							{summaryError && <p className="px-2 pt-1 text-xs text-destructive">{m.summaryFailed()}</p>}
 						</div>
 					</div>

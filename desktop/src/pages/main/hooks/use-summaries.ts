@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { m } from '~/paraglide/messages.js'
-import { appLanguageName, chunkLines, createClient, fillPrompt, inputBudgetBytes, utf8Bytes, type AiClient } from '~/lib/ai'
+import { aiDestination, appLanguageName, chunkLines, confirmCloudSend, createClient, fillPrompt, inputBudgetBytes, utf8Bytes, type AiClient } from '~/lib/ai'
 import { asText } from '~/lib/transcript'
 import { usePreferenceProvider } from '~/providers/preference'
 import type { Job, TranscribeQueue } from './use-transcribe-queue'
@@ -15,6 +15,8 @@ export interface SummaryProgress {
 export interface Summaries {
 	/** The summary task is switched on in settings. */
 	enabled: boolean
+	/** Where summaries and answers are sent, for the interface to name it. */
+	destination: { cloud: boolean; label: string }
 	/** Job ids currently waiting on the model. */
 	pending: Record<string, boolean>
 	/** Text of a summary as it streams in, by job id, until it is saved. */
@@ -86,6 +88,7 @@ export function useSummaries(queue: TranscribeQueue): Summaries {
 	const task = tasks.summary
 	const enabled = task.enabled
 	const client = useMemo<AiClient>(() => createClient(connection), [connection])
+	const destination = useMemo(() => aiDestination(connection), [connection])
 
 	const transcriptOf = useCallback((job: Job) => asText(job.segments, m.speakerPrefix(), job.speakerNames), [])
 	const speakersOf = useCallback((job: Job) => Object.values(job.speakerNames ?? {}).join(', '), [])
@@ -94,6 +97,7 @@ export function useSummaries(queue: TranscribeQueue): Summaries {
 		async (job: Job, prompt?: string) => {
 			const template = prompt ?? task.prompt
 			if (!template.trim() || !job.segments.length || inFlight.current.has(job.id)) return false
+			if (!(await confirmCloudSend(destination))) return false
 			inFlight.current.add(job.id)
 			setPendingFor(job.id, true)
 			clearError(job.id)
@@ -136,6 +140,7 @@ export function useSummaries(queue: TranscribeQueue): Summaries {
 		},
 		[
 			task.prompt,
+			destination,
 			connection.contextTokens,
 			client,
 			queue,
@@ -156,6 +161,7 @@ export function useSummaries(queue: TranscribeQueue): Summaries {
 		async (job: Job, question: string) => {
 			const trimmed = question.trim()
 			if (!trimmed || inFlight.current.has(`ask:${job.id}`)) return false
+			if (!(await confirmCloudSend(destination))) return false
 			inFlight.current.add(`ask:${job.id}`)
 			setAskingFor(job.id, true)
 			setAnswerDraft(job.id, '')
@@ -194,7 +200,7 @@ export function useSummaries(queue: TranscribeQueue): Summaries {
 				clearAnswerDraft(job.id)
 			}
 		},
-		[client, connection.contextTokens, queue, transcriptOf, setAskingFor, setAnswerDraft, clearAsking, clearAnswerDraft],
+		[client, destination, connection.contextTokens, queue, transcriptOf, setAskingFor, setAnswerDraft, clearAsking, clearAnswerDraft],
 	)
 
 	const removeThreadEntry = useCallback(
@@ -223,15 +229,17 @@ export function useSummaries(queue: TranscribeQueue): Summaries {
 			if (!liveIds.has(id)) previousStatuses.current.delete(id)
 		}
 
-		if (!enabled || !task.autoOnFinish) return
+		// Automatic summaries run on a local model only: a cloud service gets a transcript only when
+		// someone asks for it (IT review M3).
+		if (!enabled || !task.autoOnFinish || destination.cloud) return
 		for (const job of completed) {
 			if (autoAttempted.current.has(job.id)) continue
 			autoAttempted.current.add(job.id)
 			void summarize(job)
 		}
-	}, [enabled, task.autoOnFinish, queue.jobs, summarize])
+	}, [enabled, task.autoOnFinish, destination.cloud, queue.jobs, summarize])
 
 	const clearShowSummary = useCallback(() => setShowSummary(null), [])
 
-	return { enabled, pending, drafts, progress, errors, summarize, ask, answerDrafts, asking, removeThreadEntry, showSummary, clearShowSummary }
+	return { enabled, destination, pending, drafts, progress, errors, summarize, ask, answerDrafts, asking, removeThreadEntry, showSummary, clearShowSummary }
 }

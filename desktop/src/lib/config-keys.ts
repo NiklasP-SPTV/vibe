@@ -42,6 +42,8 @@ export const CONFIG_KEYS = {
 	projectsPath: 'transcription.projectsPath',
 	/** Export every finished transcript automatically: formats, destination, replace rule. */
 	autoExport: 'transcription.autoExport',
+	/** AI services the person agreed to send transcripts to, by destination key (IT review M3). */
+	aiCloudConsent: 'ai.cloudConsent',
 
 	// Recording
 	inputDeviceId: 'recording.inputDeviceId',

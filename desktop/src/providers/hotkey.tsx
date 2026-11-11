@@ -9,7 +9,7 @@ import { AudioDevice } from '~/lib/audio'
 import { CONFIG_KEYS } from '~/lib/config-keys'
 import { gpuOutOfMemoryBefore } from '~/lib/gpu-memory'
 import { usePersisted } from '~/lib/config-store'
-import { createClient, fillPrompt } from '~/lib/ai'
+import { aiDestination, confirmCloudSend, createClient, fillPrompt } from '~/lib/ai'
 import { withoutUnsupportedOptions } from '~/lib/model'
 import { isUserError } from '~/lib/server-errors'
 import * as transcript from '~/lib/transcript'
@@ -207,7 +207,10 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				// The dictation clean-up task has its own prompt; the summary prompt never touches
 				// dictated text. When the model fails or answers nothing, the raw words still land.
 				const { connection, tasks } = preferenceRef.current.ai
-				if (tasks.dictation.enabled && resultText.trim()) {
+				// No window to ask in while dictating: a cloud service is used only once it was
+				// confirmed in the app (IT review M3).
+				const cleanUp = tasks.dictation.enabled && resultText.trim() && (await confirmCloudSend(aiDestination(connection), { interactive: false }))
+				if (cleanUp) {
 					try {
 						const cleaned = await createClient(connection).ask(fillPrompt(tasks.dictation.prompt, { text: resultText }))
 						if (cleaned.trim()) resultText = cleaned
