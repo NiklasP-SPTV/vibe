@@ -1,7 +1,8 @@
 name: Promote Release
 
 # App releases are built as prereleases, so a build under test never reaches installed apps.
-# Once a version is approved, this marks it as the repository's latest release: from then on
+# Once a version is approved and merged into main (BRANCHING.md), this marks it as the
+# repository's latest release: from then on
 # releases/latest/download/latest.json serves it and installed apps offer the update
 # (IT review M5).
 
@@ -26,6 +27,12 @@ jobs:
                   VERSION: ${{ inputs.version }}
               run: |
                   set -euo pipefail
+                  # Only what the IT approved reaches installed apps: the release's commit must be in main (BRANCHING.md).
+                  status=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...v$VERSION" -q .status)
+                  if [[ "$status" != "identical" && "$status" != "behind" ]]; then
+                      echo "::error::v$VERSION is not contained in main (compare: $status). Merge dev into main after the IT's approval first."
+                      exit 1
+                  fi
                   gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -qx latest.json \
                       || { echo "::error::v$VERSION has no latest.json; was it built with release.yml?"; exit 1; }
                   gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
