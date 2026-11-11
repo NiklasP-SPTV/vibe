@@ -1,0 +1,32 @@
+name: Promote Release
+
+# App releases are built as prereleases, so a build under test never reaches installed apps.
+# Once a version is approved, this marks it as the repository's latest release: from then on
+# releases/latest/download/latest.json serves it and installed apps offer the update
+# (IT review M5).
+
+on:
+    workflow_dispatch:
+        inputs:
+            version:
+                description: 'App version to promote, e.g. 3.6.3'
+                required: true
+                type: string
+
+permissions:
+    contents: write
+
+jobs:
+    promote:
+        runs-on: ubuntu-24.04
+        steps:
+            - name: Mark v${{ inputs.version }} as the latest release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  VERSION: ${{ inputs.version }}
+              run: |
+                  set -euo pipefail
+                  gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -qx latest.json \
+                      || { echo "::error::v$VERSION has no latest.json; was it built with release.yml?"; exit 1; }
+                  gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+                  curl --fail --silent --location "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/latest.json" | head -c 400

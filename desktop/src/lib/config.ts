@@ -1,15 +1,15 @@
-export const aboutURL = 'https://thewh1teagle.github.io/vibe/'
-export const repoURL = 'https://github.com/thewh1teagle/vibe'
-export const updateVersionURL = 'https://github.com/thewh1teagle/vibe/releases/latest'
+// About, changelog, update and privacy point at this fork: the original project's pages offer its
+// own builds, which carry a different updater key and supply chain (IT review M5).
+export const aboutURL = 'https://github.com/NiklasP-SPTV/vibe#readme'
+export const repoURL = 'https://github.com/NiklasP-SPTV/vibe'
+export const updateVersionURL = 'https://github.com/NiklasP-SPTV/vibe/releases'
 export const modelsDocURL = 'https://thewh1teagle.github.io/vibe/docs#models'
-/**
- * Release notes. With a version it opens that release, otherwise the whole list —
- * the page falls back to English for a release this locale has not translated.
- */
-export const changelogURL = (version?: string) => `https://thewh1teagle.github.io/vibe/changelog${version ? `/${version}` : ''}`
+/** Release notes in the fork's repository: one version's entry, or the list of all of them. */
+export const changelogURL = (version?: string) =>
+	version ? `https://github.com/NiklasP-SPTV/vibe/blob/main/i18n/changelog/${version}.md` : 'https://github.com/NiklasP-SPTV/vibe/tree/main/i18n/changelog'
 export const discordURL = 'https://discord.gg/EcxWSstQN8'
 export const supportVibeURL = 'https://thewh1teagle.github.io/vibe/?action=support-vibe'
-export const privacyPolicyURL = 'https://thewh1teagle.github.io/vibe/?action=open-privacy-policy'
+export const privacyPolicyURL = 'https://github.com/NiklasP-SPTV/vibe/blob/main/PRIVACY.md'
 export const storeFilename = 'app_config.json'
 
 /** What the catalog knows about a finished download, beyond the bytes themselves. */
