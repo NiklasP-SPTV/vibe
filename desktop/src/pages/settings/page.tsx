@@ -1,3 +1,4 @@
+import { HANDOFF_AVAILABLE } from '~/lib/handoff-availability'
 import { ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { m } from '~/paraglide/messages.js'
@@ -77,7 +78,7 @@ export default function SettingsPage({ setVisible, scrollTo }: SettingsPageProps
 			{ id: 'recording', label: m.recordingSettings(), icon: <Mic className="h-4 w-4" /> },
 			{ id: 'dictation', label: m.navDictation(), icon: <Keyboard className="h-4 w-4" /> },
 			{ id: 'ai', label: m.aiSection(), icon: <Sparkles className="h-4 w-4" /> },
-			{ id: 'phone', label: m.phone(), icon: <Smartphone className="h-4 w-4" /> },
+			...(HANDOFF_AVAILABLE ? [{ id: 'phone' as const, label: m.phone(), icon: <Smartphone className="h-4 w-4" /> }] : []),
 		],
 		[
 			{ id: 'api', label: m.navAgents(), icon: <Terminal className="h-4 w-4" /> },

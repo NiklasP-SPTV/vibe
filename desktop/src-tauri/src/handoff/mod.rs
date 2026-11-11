@@ -26,6 +26,12 @@ use transfer::HandoffHandler;
 /// `lib/config-keys.ts` (`model.path`, `transcription.saveTranscripts`).
 pub const CONFIG_KEY_HANDOFF_ENABLED: &str = "handoff.enabled";
 
+/// Phone handoff is switched off in this fork (IT review M9): the phone side is a web app served
+/// from the original developer's GitHub Pages, which receives the pairing token, the recording and
+/// the transcript, and the transport runs over number0's relays. The code stays so upstream merges
+/// stay simple; turning it back on needs a web app hosted by us (`VIBE_PWA_ORIGIN`) and a review.
+pub const AVAILABLE: bool = false;
+
 /// Where the phone PWA is deployed: it ships inside the website's GitHub Pages
 /// artifact. This is a public URL, not a secret, so it lives in committed source
 /// rather than `.env` (which is gitignored and holds signing credentials).
@@ -197,7 +203,7 @@ pub async fn spawn(app_handle: tauri::AppHandle) -> Result<HandoffState> {
 /// settles. A brand-new user gets nothing: the flag defaults to off, and silently
 /// opening a network listener on upgrade would be wrong.
 pub fn restore_on_startup(app_handle: &tauri::AppHandle) {
-    if !is_enabled(app_handle) {
+    if !AVAILABLE || !is_enabled(app_handle) {
         tracing::debug!("handoff is disabled; not restoring");
         return;
     }

@@ -1,3 +1,4 @@
+import { HANDOFF_AVAILABLE } from '~/lib/handoff-availability'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { invoke } from '@tauri-apps/api/core'
 import * as pathApi from '@tauri-apps/api/path'
@@ -491,18 +492,20 @@ export default function RecentsSidebar() {
 						<Settings className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
 						{m.settings()}
 					</button>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<button
-								type="button"
-								aria-label={m.phone()}
-								onClick={() => openSettingsSection('phone')}
-								className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-colors duration-150 hover:bg-muted/60">
-								<Smartphone className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-							</button>
-						</TooltipTrigger>
-						<TooltipContent side="top">{m.phone()}</TooltipContent>
-					</Tooltip>
+					{HANDOFF_AVAILABLE && (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									type="button"
+									aria-label={m.phone()}
+									onClick={() => openSettingsSection('phone')}
+									className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-colors duration-150 hover:bg-muted/60">
+									<Smartphone className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+								</button>
+							</TooltipTrigger>
+							<TooltipContent side="top">{m.phone()}</TooltipContent>
+						</Tooltip>
+					)}
 					{availableUpdate && (
 						<Tooltip>
 							<TooltipTrigger asChild>

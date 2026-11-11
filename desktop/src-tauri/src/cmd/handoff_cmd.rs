@@ -49,6 +49,12 @@ pub async fn handoff_start(
     app_handle: tauri::AppHandle,
     runtime: State<'_, HandoffRuntime>,
 ) -> Result<HandoffStatus, CommandError> {
+    if !handoff::AVAILABLE {
+        return Err(CommandError {
+            code: "handoff_unavailable".to_string(),
+            message: "Die Telefon-Übergabe ist in dieser Version abgeschaltet.".to_string(),
+        });
+    }
     let mut guard = runtime.lock().await;
     if guard.is_none() {
         let state = handoff::spawn(app_handle.clone()).await?;
