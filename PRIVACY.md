@@ -24,7 +24,12 @@ Für DeepL gilt: Nur mit einem Pro-Schlüssel verwenden. Mit einem Free-Schlüss
 
 ## Fehlerberichte
 
-Ein Fehlerbericht wird erst gesendet, wenn die Anwenderin oder der Anwender ihn selbst abschickt.
+„Melden“ öffnet einen vorausgefüllten Bericht im GitHub-Projekt dieses Forks. Er ist öffentlich und wird erst gesendet, wenn die Anwenderin oder der Anwender ihn dort selbst abschickt.
+
+## Abgeschaltet
+
+- **Telefon-Übergabe:** Sie ist abgeschaltet, weil ihre Web-App vom Entwickler des Original-Projekts kommt.
+- **Nutzungsstatistik:** Sie ist ausgebaut.
 
 ## Ansprechpartner
 
