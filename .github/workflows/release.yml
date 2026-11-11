@@ -88,19 +88,42 @@ jobs:
               run: chore setup ${{ matrix.target_triple }}
 
             - name: Build
+              if: ${{ !(matrix.platform == 'macos-latest' && inputs.sign-macos) }}
               uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
               env:
                   GITHUB_TOKEN: ${{ github.token }}
                   # Tauri Updater
                   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
                   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-                  # macOS signing: only this step sees the Apple secrets, and only when signing is asked for (IT review M10)
-                  APPLE_CERTIFICATE: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_CERTIFICATE || '' }}
-                  APPLE_CERTIFICATE_PASSWORD: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-                  APPLE_SIGNING_IDENTITY: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_SIGNING_IDENTITY || '' }}
-                  APPLE_ID: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_ID || '' }}
-                  APPLE_PASSWORD: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_PASSWORD || '' }}
-                  APPLE_TEAM_ID: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos && secrets.APPLE_TEAM_ID || '' }}
+                  # Windows signing (remote YubiKey sign server)
+                  SIGN_ENABLED: ${{ matrix.platform == 'windows-latest' && inputs.sign-windows && 'true' || 'false' }}
+                  SIGN_TUNNEL_URL: ${{ secrets.SIGN_TUNNEL_URL }}
+                  SIGN_TUNNEL_SECRET: ${{ secrets.SIGN_TUNNEL_SECRET }}
+              with:
+                  tagName: v__VERSION__ # the action automatically replaces __VERSION__ with the app version.
+                  releaseName: "v__VERSION__"
+                  releaseBody: "Release notes: https://github.com/NiklasP-SPTV/vibe/blob/main/i18n/changelog/__VERSION__.md\n\nUnsigned build."
+                  prerelease: true
+                  args: ${{ matrix.args }} ${{ matrix.platform == 'windows-latest' && inputs.sign-windows && '--config src-tauri/tauri.windows.signing.conf.json' || '' }}
+                  projectPath: "./desktop"
+                  tauriScript: pnpm exec tauri
+
+            - name: Build (signed macOS)
+              if: ${{ matrix.platform == 'macos-latest' && inputs.sign-macos }}
+              uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+              env:
+                  GITHUB_TOKEN: ${{ github.token }}
+                  # Tauri Updater
+                  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+                  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+                  # Only this step sees the Apple secrets (IT review M10). They must be absent, not empty,
+                  # for unsigned builds: Tauri tries to sign as soon as APPLE_CERTIFICATE is set at all.
+                  APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+                  APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+                  APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+                  APPLE_ID: ${{ secrets.APPLE_ID }}
+                  APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+                  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
                   # Windows signing (remote YubiKey sign server)
                   SIGN_ENABLED: ${{ matrix.platform == 'windows-latest' && inputs.sign-windows && 'true' || 'false' }}
                   SIGN_TUNNEL_URL: ${{ secrets.SIGN_TUNNEL_URL }}
