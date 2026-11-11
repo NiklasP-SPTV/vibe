@@ -22,13 +22,20 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                lockfile: [Cargo.lock, server/Cargo.lock]
+                include:
+                    - lockfile: Cargo.lock
+                      ignore: ''
+                    # zip 3.0.0 is a build-time dependency of utoipa-swagger-ui: it unpacks the Swagger UI
+                    # archive while compiling and never ships in the engine or touches user files. The fix
+                    # needs utoipa-swagger-ui 10 and utoipa 6; until then these four are accepted.
+                    - lockfile: server/Cargo.lock
+                      ignore: --ignore RUSTSEC-2026-0367 --ignore RUSTSEC-2026-0368 --ignore RUSTSEC-2026-0369 --ignore RUSTSEC-2026-0429
         steps:
             - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
             - name: Install cargo-audit
               run: cargo install cargo-audit --version 0.23.0 --locked
             - name: Audit ${{ matrix.lockfile }}
-              run: cargo audit --file "${{ matrix.lockfile }}"
+              run: cargo audit --file "${{ matrix.lockfile }}" ${{ matrix.ignore }}
 
     pnpm-audit:
         runs-on: ubuntu-24.04
