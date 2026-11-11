@@ -82,3 +82,16 @@ pub fn clean_updater_files() -> Result<()> {
     }
     Ok(())
 }
+
+/// Burned-in videos are full copies of the source material. Once the app quits nobody can save
+/// one any more, so they go then instead of waiting for the next day's start (IT review M8).
+pub fn clean_burn_in_renders() {
+    let Ok(entries) = std::fs::read_dir(get_vibe_temp_folder()) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if entry.file_name().to_string_lossy().starts_with("burnin_") {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}

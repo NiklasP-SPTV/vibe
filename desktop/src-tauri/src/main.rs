@@ -181,6 +181,7 @@ async fn main() -> Result<()> {
             // arrives first. Nothing here prevents the exit, so this is never a false signal.
             if !EXIT_REPORTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
                 analytics::track_event_handle(app, analytics::events::APP_EXITED);
+                cleaner::clean_burn_in_renders();
                 // Bounded: a slow or unreachable ingest host must not hold up quitting.
                 analytics::flush_events_bounded(app, std::time::Duration::from_secs(2));
             }

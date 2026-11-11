@@ -26,7 +26,7 @@ pub fn read_with_options<R: Read + Seek>(reader: &mut R, options: ReadOptions) -
     }
 
     reader.seek(SeekFrom::Start(0))?;
-    let mut input = tempfile::NamedTempFile::new()?;
+    let mut input = tempfile::Builder::new().prefix(TEMP_PREFIX).tempfile()?;
     std::io::copy(reader, &mut input)?;
     input.flush()?;
 
@@ -36,6 +36,36 @@ pub fn read_with_options<R: Read + Seek>(reader: &mut R, options: ReadOptions) -
     let samples = try_read_native_wav(&mut output)?;
     let _ = std::fs::remove_file(output_path);
     Ok(samples)
+}
+
+/// Prefix of the engine's temporary copies of uploaded audio, so a later start can find them.
+const TEMP_PREFIX: &str = "vibe-server-";
+
+/// Temp copies older than this belong to no running conversion: one only lives while ffmpeg runs.
+const STALE_TEMP_AGE: std::time::Duration = std::time::Duration::from_secs(60 * 60);
+
+/// Delete the copies a killed engine left behind. The engine ends with `process::exit` when the app
+/// goes away, which skips the destructors that normally delete them, and each is a full copy of
+/// the recording (IT review M8).
+pub fn sweep_stale_temp_files() {
+    let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        if !name.to_string_lossy().starts_with(TEMP_PREFIX) {
+            continue;
+        }
+        let stale = entry
+            .metadata()
+            .and_then(|metadata| metadata.modified())
+            .ok()
+            .and_then(|modified| modified.elapsed().ok())
+            .is_some_and(|age| age > STALE_TEMP_AGE);
+        if stale {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
 }
 
 pub fn convert_to_native_wav(

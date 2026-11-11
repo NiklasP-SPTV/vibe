@@ -124,6 +124,7 @@ pub async fn serve(
     config: AppConfig,
 ) -> anyhow::Result<()> {
     whisper_rs::set_verbose(config.verbose());
+    crate::audio::sweep_stale_temp_files();
     let mut server_state = ServerState::new();
     if let Some(model) = initial_model.as_deref() {
         server_state.load_model(model, -1, Some(false))?;
