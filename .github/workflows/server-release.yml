@@ -29,6 +29,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
+          # Tag the commit the binaries are built from, not the default branch (IT review N12).
+          target_commitish: ${{ github.sha }}
           name: Server ${{ env.VERSION }}
           # Never the repository's Latest: that badge, the website, and the updater belong to the app.
           prerelease: true
