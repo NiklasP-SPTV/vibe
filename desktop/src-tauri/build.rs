@@ -11,8 +11,5 @@ fn main() {
     println!("cargo:rerun-if-env-changed=COMMIT_HASH");
     println!("cargo:rustc-env=COMMIT_HASH={}", hash);
 
-    // Analytics
-    println!("cargo:rerun-if-env-changed=APTABASE_KEY");
-
     tauri_build::build();
 }

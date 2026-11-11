@@ -1,8 +1,3 @@
-import { invoke } from '@tauri-apps/api/core'
-import { load } from '@tauri-apps/plugin-store'
-import { storeFilename } from '~/lib/config'
-import { getMediaDurationSeconds } from '~/lib/media'
-
 export const analyticsEvents = {
 	TRANSCRIBE_STARTED: 'transcribe_started',
 	TRANSCRIBE_SUCCEEDED: 'transcribe_succeeded',
@@ -16,23 +11,11 @@ export type TranscribeSource = 'home' | 'batch' | 'main' | 'hotkey'
 
 type AnalyticsProps = Record<string, string | number>
 
-export async function trackAnalyticsEvent(eventName: string, props?: AnalyticsProps) {
-	try {
-		const store = await load(storeFilename)
-		const enabled = await store.get<boolean>('analytics_enabled')
-		if (enabled === false) {
-			return
-		}
-	} catch {
-		// If store fails, proceed with tracking
-	}
-	void invoke('track_analytics_event', {
-		name: eventName,
-		props,
-	}).catch((error) => {
-		console.debug('analytics track failed', error)
-	})
-}
+/**
+ * Telemetry is removed from this fork (IT review H1): events go nowhere. The helpers below keep
+ * upstream's call sites unchanged so merges stay simple.
+ */
+export async function trackAnalyticsEvent(_eventName: string, _props?: AnalyticsProps) {}
 
 function fileExt(path: string) {
 	return path.split('.').pop() ?? 'unknown'
@@ -47,13 +30,7 @@ function fileExt(path: string) {
  * unanswerable.
  */
 export async function trackTranscribeStarted(source: TranscribeSource, path: string) {
-	// The duration read is a metadata load, which is why the event is not awaited by its callers.
-	const seconds = await getMediaDurationSeconds(path)
-	await trackAnalyticsEvent(analyticsEvents.TRANSCRIBE_STARTED, {
-		source,
-		file_ext: fileExt(path),
-		...(seconds === null ? {} : { audio_duration_seconds: seconds }),
-	})
+	await trackAnalyticsEvent(analyticsEvents.TRANSCRIBE_STARTED, { source, file_ext: fileExt(path) })
 }
 
 export function trackTranscribeSucceeded(source: TranscribeSource, options: { durationSeconds: number; segmentsCount: number }) {

@@ -86,18 +86,6 @@ async fn main() -> Result<()> {
         builder = builder.plugin(tauri_nspanel::init());
     }
 
-    if analytics::is_aptabase_configured() {
-        let options = tauri_plugin_aptabase::InitOptions {
-            host: Some(analytics::APTABASE_BASE_URL.to_string()),
-            ..Default::default()
-        };
-        builder = builder.plugin(
-            tauri_plugin_aptabase::Builder::new(analytics::APTABASE_APP_KEY)
-                .with_options(options)
-                .build(),
-        );
-    }
-
     let app = builder
         .invoke_handler(tauri::generate_handler![
             cmd::download::download_file,
@@ -132,7 +120,6 @@ async fn main() -> Result<()> {
             cmd::server_cmd::get_api_base_url,
             cmd::server_cmd::start_api_server,
             cmd::server_cmd::stop_api_server,
-            cmd::app::track_analytics_event,
             cmd::app::get_commit_hash,
             cmd::app::is_avx2_enabled,
             cmd::app::is_online,
