@@ -58,6 +58,8 @@ function baseUrlSection(context: SkillContext) {
 		'run, and the API server is a toggle that is off by default, so do not assume it still answers.',
 		'',
 		`While the server runs, Vibe writes the current base URL into \`${CONFIG_KEYS.apiBaseUrl}\` in the config file`,
+		`and the key every request needs into \`${CONFIG_KEYS.apiToken}\`: send it as \`Authorization: Bearer <key>\`.`,
+		'Requests whose Host header is not 127.0.0.1 or localhost are refused.',
 		'(path in the settings section below) and removes it on stop. Read it there rather than reusing',
 		'the one above — but treat it as a hint: a crash can leave a dead value behind, so confirm with',
 		'`GET <base>/health` before relying on it. No key, or no answer, means the server is off; ask the',

@@ -272,7 +272,7 @@ pub async fn start_api_server(
     let process = state_guard.process.as_ref().context("API server process missing")?;
     let base_url = process.base_url();
     // Best-effort: an agent losing the hint is not a reason to fail starting the server.
-    crate::cmd::config::set_api_base_url(&app_handle, Some(&base_url)).log_error();
+    crate::cmd::config::set_api_base_url(&app_handle, Some((&base_url, process.token()))).log_error();
     Ok(base_url)
 }
 

@@ -53,6 +53,8 @@ pub struct ServerProcess {
     /// Cached because `try_wait` hands the status over exactly once.
     exit_status: Option<std::process::ExitStatus>,
     client: reqwest::Client,
+    /// The per-start key the engine requires on every request (IT review M6).
+    token: String,
     stderr_buf: Arc<Mutex<StderrTail>>,
 }
 

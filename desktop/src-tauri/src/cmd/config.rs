@@ -8,6 +8,8 @@ use tauri_plugin_store::StoreExt;
 
 /// Config key holding the base URL of the running local API. Must match `CONFIG_KEYS.apiBaseUrl`.
 pub const API_BASE_URL_KEY: &str = "api.baseUrl";
+/// The engine's per-start key, written beside the base URL while the API option is on.
+pub const API_TOKEN_KEY: &str = "api.token";
 
 /// Config key for the CPU backend build the engine should use. Must match `CONFIG_KEYS.cpuVariant`.
 pub const CPU_VARIANT_KEY: &str = "server.cpuVariant";
@@ -80,12 +82,16 @@ pub fn get_config_path(app_handle: tauri::AppHandle) -> Result<PathBuf> {
 /// The port is picked per run and lives in memory only, so an agent outside the app has no way to
 /// find it. Writing it where the skill already points solves that; clearing it on stop and on exit
 /// keeps a dead port from outliving the server it belonged to.
-pub fn set_api_base_url(app_handle: &tauri::AppHandle, base_url: Option<&str>) -> Result<()> {
+pub fn set_api_base_url(app_handle: &tauri::AppHandle, endpoint: Option<(&str, &str)>) -> Result<()> {
     let store = app_handle.store(STORE_FILENAME).map_err(|e| eyre!("{:?}", e))?;
-    match base_url {
-        Some(url) => store.set(API_BASE_URL_KEY, serde_json::Value::String(url.to_string())),
+    match endpoint {
+        Some((url, token)) => {
+            store.set(API_BASE_URL_KEY, serde_json::Value::String(url.to_string()));
+            store.set(API_TOKEN_KEY, serde_json::Value::String(token.to_string()));
+        }
         None => {
             store.delete(API_BASE_URL_KEY);
+            store.delete(API_TOKEN_KEY);
         }
     }
     store.save().map_err(|e| eyre!("{:?}", e))?;

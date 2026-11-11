@@ -86,6 +86,8 @@ export const CONFIG_KEYS = {
 	// Local API. Written by the app while the server runs so agents can find the per-run port;
 	// removed on stop and on exit. Not a user setting.
 	apiBaseUrl: 'api.baseUrl',
+	/** The engine's per-start key, beside the base URL while the API option is on. */
+	apiToken: 'api.token',
 
 	// Tools
 	ytDlpVersion: 'tools.ytDlpVersion',

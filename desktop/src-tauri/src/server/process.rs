@@ -119,8 +119,22 @@ fn wait_for_stderr_blocking(stderr: &Arc<Mutex<StderrTail>>) -> String {
     stderr_snapshot(stderr)
 }
 
-fn build_client() -> Result<reqwest::Client> {
+/// A random key per engine start: 32 bytes from the OS generator, hex encoded. It travels to the
+/// engine in the environment, never on the command line, where other processes could read it.
+fn new_token() -> String {
+    use rand::RngCore;
+    let mut bytes = [0u8; 32];
+    rand::rng().fill_bytes(&mut bytes);
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn build_client(token: &str) -> Result<reqwest::Client> {
+    let mut headers = reqwest::header::HeaderMap::new();
+    let mut value = reqwest::header::HeaderValue::from_str(&format!("Bearer {token}")).context("server token")?;
+    value.set_sensitive(true);
+    headers.insert(reqwest::header::AUTHORIZATION, value);
     reqwest::Client::builder()
+        .default_headers(headers)
         .no_proxy()
         .connect_timeout(CONNECT_TIMEOUT)
         .pool_idle_timeout(POOL_IDLE_TIMEOUT)
@@ -149,8 +163,10 @@ impl ServerProcess {
         } else {
             format!("{unload_timeout_minutes}m")
         };
+        let token = new_token();
         let mut cmd = Command::new(binary_path);
         cmd.args(["serve", "--port", "0"])
+            .env("VIBE_SERVER_TOKEN", &token)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .env("VIBE_SERVER_UNLOAD_TIMEOUT", unload_timeout)
@@ -269,7 +285,8 @@ impl ServerProcess {
             cpu_variant,
             child,
             exit_status: None,
-            client: build_client()?,
+            client: build_client(&token)?,
+            token,
             stderr_buf,
         })
     }
@@ -280,6 +297,11 @@ impl ServerProcess {
 
     pub fn client(&self) -> reqwest::Client {
         self.client.clone()
+    }
+
+    /// The key the engine requires; handed to agents only while the API option is on.
+    pub fn token(&self) -> &str {
+        &self.token
     }
 
     /// `try_wait` reports the status exactly once and then forgets it, so the

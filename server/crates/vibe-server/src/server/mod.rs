@@ -1,3 +1,4 @@
+mod access;
 mod diarization;
 mod form;
 pub(crate) mod format;
@@ -148,6 +149,10 @@ pub async fn serve(
         .route("/v1/audio/transcriptions", post(routes::transcriptions::transcriptions))
         .merge(SwaggerUi::new("/docs").url("/openapi.json", ApiDoc::openapi()))
         .layer(DefaultBodyLimit::max(MAX_UPLOAD_SIZE))
+        .layer(axum::middleware::from_fn_with_state(
+            access::Access::from_env(&host),
+            access::guard,
+        ))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
