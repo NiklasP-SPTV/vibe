@@ -102,6 +102,7 @@ export function useModelGates() {
 				const ready = await ensureModel({
 					filename: config.vadModelFilename,
 					url: config.vadModelUrl,
+					integrity: config.vadModelIntegrity,
 					title: m.stableTimestamps(),
 					question: m.stableTimestampsConfirm(),
 					downloading: m.downloadingVadModel(),
@@ -122,8 +123,13 @@ export function useModelGates() {
 	const ensureMaxQuality = useCallback(async () => {
 		const modelsFolder = await invoke<string>('get_models_folder')
 		const needed = [
-			{ filename: MAX_QUALITY_MODEL.filename, url: MAX_QUALITY_MODEL.url, label: `Sprachmodell large-v3 (${MAX_QUALITY_MODEL.sizeLabel})` },
-			{ filename: config.vadModelFilename, url: config.vadModelUrl, label: 'Sprachfilter (VAD, wenige MB)' },
+			{
+				filename: MAX_QUALITY_MODEL.filename,
+				url: MAX_QUALITY_MODEL.url,
+				integrity: MAX_QUALITY_MODEL.integrity,
+				label: `Sprachmodell large-v3 (${MAX_QUALITY_MODEL.sizeLabel})`,
+			},
+			{ filename: config.vadModelFilename, url: config.vadModelUrl, integrity: config.vadModelIntegrity, label: 'Sprachfilter (VAD, wenige MB)' },
 		]
 		const missing = []
 		for (const model of needed) {
@@ -141,7 +147,7 @@ export function useModelGates() {
 				progressToast.setMessage(`${model.label} wird heruntergeladen …`)
 				progressToast.setOpen(true)
 				progressToast.setProgress(0)
-				await invoke('download_model', { url: model.url, path: model.path })
+				await invoke('download_model', { url: model.url, path: model.path, integrity: model.integrity })
 			}
 			toast.success(m.downloadComplete())
 			return true

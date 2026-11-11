@@ -1,3 +1,4 @@
+import { largeV3Integrity } from '~/lib/config'
 import type { ModelOptions } from '~/providers/preference'
 import { DEFAULT_MAX_TEXT_CTX } from './model-defaults'
 import { CONFIG_KEYS } from './config-keys'
@@ -17,6 +18,7 @@ export type QualityMode = 'standard' | 'max'
 export const MAX_QUALITY_MODEL = {
 	filename: 'ggml-large-v3.bin',
 	url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin',
+	integrity: largeV3Integrity,
 	sizeLabel: '3,1 GB',
 }
 

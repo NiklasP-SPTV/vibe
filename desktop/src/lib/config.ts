@@ -27,16 +27,27 @@ export interface ModelDownload extends ModelIntegrity {
 	url: string
 }
 
-// TODO: fill in `size` and `sha256` for every entry below from the real published artifacts
-// (`curl -sI <url>` for the length, `shasum -a 256 <file>` for the hash). They are deliberately
-// left unset rather than guessed: a wrong value would reject a perfectly good download.
+/**
+ * Size and SHA-256 of every model the app downloads, taken from Hugging Face's LFS metadata and
+ * checked against our own copies (IT review M7). A download that does not match is discarded, so
+ * a changed file on a mirror or on Hugging Face's `main` branch can never replace a model unseen.
+ */
+const TURBO: ModelIntegrity = { size: 1_624_555_275, sha256: '1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69' }
+export const largeV3Integrity: ModelIntegrity = { size: 3_095_033_483, sha256: '64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2' }
+
 export const modelUrls: Record<'default' | 'hebrew', ModelDownload[]> = {
 	default: [
-		{ url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin' },
-		{ url: 'https://huggingface.co/vibe-app/whisper-large-v3-turbo-gguf/resolve/main/ggml-large-v3-turbo.bin' }, // Hugging Face fallback
-		{ url: 'https://github.com/thewh1teagle/vibe/releases/download/model-files-v1.0/ggml-large-v3-turbo.bin' }, // GitHub fallback
+		{ url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin', ...TURBO },
+		{ url: 'https://huggingface.co/vibe-app/whisper-large-v3-turbo-gguf/resolve/main/ggml-large-v3-turbo.bin', ...TURBO }, // Hugging Face fallback
+		{ url: 'https://github.com/thewh1teagle/vibe/releases/download/model-files-v1.0/ggml-large-v3-turbo.bin', ...TURBO }, // GitHub fallback
 	],
-	hebrew: [{ url: 'https://huggingface.co/ivrit-ai/whisper-large-v3-turbo-ggml/resolve/main/ggml-model.bin' }],
+	hebrew: [
+		{
+			url: 'https://huggingface.co/ivrit-ai/whisper-large-v3-turbo-ggml/resolve/main/ggml-model.bin',
+			size: 1_624_555_275,
+			sha256: 'c8090411113357097bfafc2b8e228ec1639fa7f5fe4ecb5d054ac0ccef8641b1',
+		},
+	],
 }
 
 export const embeddingModelFilename = 'wespeaker_en_voxceleb_CAM++.onnx'
@@ -76,6 +87,7 @@ export const nemotronDiarizeModelIntegrity: ModelIntegrity = {
 }
 export const vadModelFilename = 'ggml-silero-v6.2.0.bin'
 export const vadModelUrl = 'https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin'
+export const vadModelIntegrity: ModelIntegrity = { size: 885_098, sha256: '2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987' }
 
 export const llmApiKeyUrl = 'https://console.anthropic.com/settings/keys'
 export const llmDefaultMaxTokens = 8192 // https://docs.anthropic.com/en/docs/about-claude/models

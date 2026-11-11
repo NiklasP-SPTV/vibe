@@ -223,7 +223,7 @@ export function viewModel() {
 		progressToast.setOpen(true)
 		progressToast.setProgress(0)
 		try {
-			await invoke('download_model', { url: config.vadModelUrl, path: vadPath })
+			await invoke('download_model', { url: config.vadModelUrl, path: vadPath, integrity: config.vadModelIntegrity })
 			toast.success(m.downloadComplete())
 			return true
 		} finally {

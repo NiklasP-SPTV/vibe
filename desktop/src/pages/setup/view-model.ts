@@ -52,7 +52,7 @@ export function viewModel() {
 			kind: 'info',
 		})
 		if (!confirmed) return false
-		await invoke('download_model', { url: config.vadModelUrl, path: vadPath })
+		await invoke('download_model', { url: config.vadModelUrl, path: vadPath, integrity: config.vadModelIntegrity })
 		return true
 	}
 
