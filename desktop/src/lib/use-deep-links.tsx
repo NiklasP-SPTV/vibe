@@ -2,7 +2,8 @@ import { onOpenUrl } from '@tauri-apps/plugin-deep-link'
 import { m } from '~/paraglide/messages.js'
 import { ModifyState, NamedPath } from './types'
 import { pathToNamedPath } from './fs'
-import { ask } from '@tauri-apps/plugin-dialog'
+import { ask, message } from '@tauri-apps/plugin-dialog'
+import { isTrustedModelUrl } from '~/lib/trusted-model-url'
 import * as config from '~/lib/config'
 import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
@@ -21,8 +22,12 @@ export function useDeepLinks({ setFiles }: UseDeepLinksProps) {
 		for (let url of urls) {
 			if (url.startsWith('vibe://download/?url=')) {
 				const downloadURL = url.replace('vibe://download/?url=', '')
-				const host = new URL(downloadURL).hostname
-				const confirm = await ask(`${m.askForDownloadModel()} ${host}`, { kind: 'info', title: m.downloadModel() })
+				// Only model hosts we know, over https, and the whole address in the question (IT review N3).
+				if (!isTrustedModelUrl(downloadURL)) {
+					await message(`Download abgelehnt: ${downloadURL} liegt nicht bei Hugging Face oder GitHub.`, { kind: 'warning', title: m.downloadModel() })
+					break
+				}
+				const confirm = await ask(`${m.askForDownloadModel()}\n\n${downloadURL}`, { kind: 'info', title: m.downloadModel() })
 				if (confirm) {
 					navigate('/setup', { state: { downloadURL } })
 				}
