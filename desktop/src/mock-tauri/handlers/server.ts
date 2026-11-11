@@ -206,12 +206,8 @@ export const serverHandlers: CommandHandlerMap = {
 		return { status: 'completed', path }
 	},
 
-	download_file: async (args) => {
-		const path = String(args.path ?? '')
-		const completed = await runDownloadTicks('abort_download')
-		if (completed && path) {
-			virtualFs.set(path, null)
-		}
+	install_ytdlp: async () => {
+		await runDownloadTicks('abort_download')
 		return undefined
 	},
 

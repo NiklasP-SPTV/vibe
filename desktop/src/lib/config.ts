@@ -103,10 +103,6 @@ export const ytDlpAssetNames: Record<string, string> = {
 	'macos-aarch64': 'yt-dlp_macos',
 }
 
-export function ytDlpDownloadUrl(version: string, key: string): string {
-	return `https://github.com/yt-dlp/yt-dlp/releases/download/${version}/${ytDlpAssetNames[key]}`
-}
-
 export const videoExtensions = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'webm', 'mxf']
 export const audioExtensions = ['mp3', 'wav', 'aac', 'flac', 'oga', 'ogg', 'opic', 'opus', 'm4a', 'm4b', 'wma']
 export const themes = ['light', 'dark']

@@ -35,7 +35,7 @@ pub enum DownloadModelResult {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum DownloadOutcome {
+pub(crate) enum DownloadOutcome {
     Completed,
     Cancelled,
 }
@@ -214,7 +214,7 @@ fn publish_download(partial: &Path, destination: &Path) -> Result<()> {
     }
 }
 
-async fn download_to_partial(
+pub(crate) async fn download_to_partial(
     app_handle: &tauri::AppHandle,
     url: &str,
     destination: &Path,
@@ -337,16 +337,6 @@ pub async fn download_model(
     match download_to_partial(&app_handle, &url, Path::new(&path), &integrity, true).await? {
         DownloadOutcome::Completed => Ok(DownloadModelResult::Completed { path }),
         DownloadOutcome::Cancelled => Ok(DownloadModelResult::Cancelled),
-    }
-}
-
-#[tauri::command]
-pub async fn download_file(app_handle: tauri::AppHandle, url: String, path: String) -> Result<()> {
-    tracing::debug!("Download file invoked! with path {}", path);
-
-    match download_to_partial(&app_handle, &url, Path::new(&path), &DownloadIntegrity::default(), false).await? {
-        DownloadOutcome::Completed => Ok(()),
-        DownloadOutcome::Cancelled => bail!("Download cancelled"),
     }
 }
 

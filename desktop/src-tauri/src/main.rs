@@ -88,7 +88,7 @@ async fn main() -> Result<()> {
 
     let app = builder
         .invoke_handler(tauri::generate_handler![
-            cmd::download::download_file,
+            cmd::ytdlp::install_ytdlp,
             cmd::handoff_cmd::handoff_status,
             cmd::handoff_cmd::handoff_start,
             cmd::handoff_cmd::handoff_stop,
